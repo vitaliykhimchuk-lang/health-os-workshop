@@ -1,3 +1,4 @@
+import {bindActivityImport} from "./activity.mjs";
 const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const date=s=>new Date(s+'T12:00:00').toLocaleDateString('ru-RU');let history=[];
 async function api(path,body){const r=await fetch('/api/'+path,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});const d=await r.json();if(r.status===401&&path!=='login'){$('workspace').hidden=true;$('login').hidden=false;}if(!r.ok)throw Error(d.error||'Ошибка запроса');return d;}
@@ -27,3 +28,5 @@ $('profileForm').onsubmit=async e=>{e.preventDefault();const button=e.submitter;
 $('wearableForm').onsubmit=async e=>{e.preventDefault();const button=e.submitter;button.disabled=true;try{const f=$('wearableFile').files[0];if(f.size>3000000)throw Error('JSON должен быть не больше 3 МБ');await api('wearables',JSON.parse(await f.text()));location.reload();}catch(x){$('wearableStatus').textContent=x.message;}finally{button.disabled=false;}};
 
 $("syncRing").onclick=async()=>{const b=$("syncRing");b.disabled=true;$("ringStatus").textContent="Получаю данные кольца за последние 7 дней…";try{const r=await api("ultrahuman/sync",{});$("ringStatus").textContent=r.message;location.reload();}catch(e){$("ringStatus").textContent=e.message;}finally{b.disabled=false;}};
+
+bindActivityImport(api);
