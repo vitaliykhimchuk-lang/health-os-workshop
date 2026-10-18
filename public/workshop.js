@@ -299,6 +299,7 @@ function sleepCard(title, hint) {
   return `<div class="card"><div class="sh">${title}</div><div class="shint">${hint}</div><div class="chartbox"><canvas></canvas></div></div>`;
 }
 function renderSleep() {
+  if (D.ring && D.ring.days.length) { window.renderRingSleep(D.ring); return; }
   if (!G) { $("sleepTiles").innerHTML = '<span class="empty">Ваших данных часов пока нет. Загрузите их ниже — появятся графики сна, пульса и HRV.</span>'; return; }
   const days = G.days, N = days.length;
   // плитки: [ключ, подпись, единицы, знаков после запятой, что лучше: 1 — больше, -1 — меньше]

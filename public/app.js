@@ -25,3 +25,5 @@ refresh().catch(x=>{if(x.message!=='Войдите по паролю')$('loginEr
 
 $('profileForm').onsubmit=async e=>{e.preventDefault();const button=e.submitter;button.disabled=true;try{await api('profile',Object.fromEntries(new FormData(e.target)));location.reload();}catch(x){$('profileStatus').textContent=x.message;}finally{button.disabled=false;}};
 $('wearableForm').onsubmit=async e=>{e.preventDefault();const button=e.submitter;button.disabled=true;try{const f=$('wearableFile').files[0];if(f.size>3000000)throw Error('JSON должен быть не больше 3 МБ');await api('wearables',JSON.parse(await f.text()));location.reload();}catch(x){$('wearableStatus').textContent=x.message;}finally{button.disabled=false;}};
+
+$("syncRing").onclick=async()=>{const b=$("syncRing");b.disabled=true;$("ringStatus").textContent="Получаю данные кольца за последние 7 дней…";try{const r=await api("ultrahuman/sync",{});$("ringStatus").textContent=r.message;location.reload();}catch(e){$("ringStatus").textContent=e.message;}finally{b.disabled=false;}};

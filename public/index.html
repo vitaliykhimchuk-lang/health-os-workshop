@@ -40,7 +40,7 @@
       <div class="mdesc">Данные часов за 90 дней. Сверху: последние 7 дней против вашей обычной нормы.</div>
       <div class="tiles" id="sleepTiles"></div>
       <h2 class="section">По дням, 90 дней</h2>
-      <div class="sgrid" id="sleepDaily"></div>
+      <article class="card toolcard"><h3>Кольцо Ultrahuman</h3><p>Сон, ночной пульс, HRV и другие доступные данные кольца. Шаги Apple Watch подключим отдельно.</p><button id="syncRing" class="action">Синхронизировать кольцо</button><p id="ringStatus" role="status"></p></article><div class="sgrid" id="sleepDaily"></div>
       <h2 class="section">По неделям</h2>
       <div class="sgrid" id="sleepWeekly"></div>
       <div class="slegend" id="sleepLegend"></div><article class="card toolcard"><h3>Загрузить свои данные часов</h3><p>JSON в формате Health OS: days и norms. Учебные значения не подставляются вместо ваших.</p><form id="wearableForm"><input id="wearableFile" type="file" accept="application/json,.json" required><button class="action">Импортировать данные часов</button></form><p id="wearableStatus" role="status"></p></article>
@@ -71,6 +71,6 @@
 </div>
 
 <script src="chart.umd.min.js"></script>
-<script src="/workshop.js"></script><script type="module" src="/app.js"></script>
+<script src="/ring.js"></script><script src="/workshop.js"></script><script type="module" src="/app.js"></script>
 </body>
 </html>
