@@ -1,11 +1,76 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Мой Health OS</title><link rel="stylesheet" href="/style.css"></head><body>
-<header><a href="/" class="brand"><span>✚</span> Health OS</a><span class="sub">Моя личная медкарта</span><button id="logout" hidden>Выйти</button></header>
-<main><section id="login" class="card login"><div class="eyebrow">Личное пространство</div><h1>Всё о здоровье<br>в одном месте</h1><p>Анализы, посещения врачей и ответы по вашим документам.</p><form id="loginForm"><label for="password">Пароль медкарты</label><input id="password" type="password" autocomplete="current-password" required><button class="primary">Открыть медкарту →</button></form><p id="loginError" role="alert"></p></section>
-<div id="app" hidden><div class="intro"><div><div class="eyebrow">Ваши документы · ваш доступ</div><h1>Моя медкарта</h1><p>Загрузите анализ или заключение врача — показатели и рекомендации появятся здесь.</p></div><button id="export">Скачать копию данных</button></div>
-<nav aria-label="Разделы"><button data-tab="overview" class="active">Обзор</button><button data-tab="analyses">Анализы</button><button data-tab="visits">Визиты</button><button data-tab="reminders">✚ Напоминания</button><button data-tab="chat">Чат по медкарте</button></nav>
-<section id="overview" class="tab"><div class="stats" id="stats"></div><div class="grid"><article class="card"><div class="eyebrow">Добавить в медкарту</div><h2>Новый документ</h2><p>PDF или фото до 3 МБ. Можно выбрать несколько файлов — они обработаются по очереди.</p><form id="uploadForm"><input id="files" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" multiple required><button class="primary" id="uploadButton">Сохранить и разобрать</button></form><p id="uploadStatus" role="status" aria-live="polite"></p><small>Разбор выполняет ИИ. Сверяйте важные цифры с оригиналом.</small></article><article class="card"><div class="eyebrow">Архив</div><h2>Мои документы</h2><div id="documents"></div></article></div></section>
-<section id="analyses" class="tab" hidden><h2>Показатели и история</h2><p>Значения из ваших документов. Цвет — сравнение с указанным референсом.</p><div class="grid" id="markers"></div></section>
-<section id="visits" class="tab" hidden><h2>Посещения врачей</h2><div id="visitList"></div></section>
-<section id="reminders" class="tab" hidden><h2>✚ Напоминания</h2><p>Сроки контроля из рекомендаций врачей.</p><div id="reminderList"></div></section>
-<section id="chat" class="tab" hidden><div class="card"><h2>Спросить по медкарте</h2><p>Например: «Как менялся мой холестерин?» или «Что рекомендовал врач?»</p><div id="messages" aria-live="polite"></div><form id="chatForm"><label for="question">Ваш вопрос</label><textarea id="question" maxlength="3000" required placeholder="Что хотите узнать?"></textarea><button class="primary" id="askButton">Спросить</button></form></div></section>
-<p id="error" role="alert"></p></div><footer>Личная медкарта помогает разобраться в документах. Она не ставит диагнозов и не заменяет врача.</footer></main><script type="module" src="/app.js"></script></body></html>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Health OS — личная карта здоровья</title>
+
+<link rel="stylesheet" href="/style.css">
+</head>
+<body><section id="login" class="login-panel card"><h1>Health OS</h1><p>Вход в вашу личную медкарту</p><form id="loginForm"><label for="password">Пароль медкарты</label><input id="password" type="password" autocomplete="current-password" required><button class="action">Открыть медкарту</button></form><p id="loginError" role="alert"></p></section>
+<div class="app" id="workspace" hidden>
+  <aside class="sidebar">
+    <div class="brand"><div class="bt">Health <span>OS</span></div><div class="bs">личная карта здоровья</div></div>
+    <nav id="nav"></nav>
+    <div class="sidefoot">Ваша личная медкарта.<br><button id="logout">Выйти</button></div>
+  </aside>
+  <main class="main"><div class="content">
+
+    <section class="module" id="m-overview">
+      <div class="hero"><div class="avatar" id="avatar"></div><div><h1 id="name"></h1><div class="hm" id="meta"></div></div></div>
+      <h2 class="section">Ключевые цифры</h2>
+      <div class="tiles" id="tiles"></div><div id="overviewEmpty" class="card" hidden><h3>Начните со своего документа</h3><p>Медкарта пока пуста. Загрузите анализ или заключение врача, чтобы увидеть показатели и графики.</p><a href="#documents">Добавить документ →</a></div>
+      <h2 class="section">Статус: на что смотреть</h2>
+      <div class="tldr" id="tldr"></div>
+      <div id="remsOverview" hidden>
+        <h2 class="section">Ближайшие напоминания</h2>
+        <div class="tldr" id="remsNear"></div>
+        <a class="golink navmore" href="#reminders">Все напоминания →</a>
+      </div>
+    </section>
+
+    <section class="module" id="m-analyses">
+      <h1 class="mtitle">Анализы</h1>
+      <div class="mdesc">Последние значения по группам и как они менялись. Красным — вне нормы.</div>
+      <div id="labs"></div>
+    </section>
+
+    <section class="module" id="m-sleep">
+      <h1 class="mtitle">Сон и пульс</h1>
+      <div class="mdesc">Данные часов за 90 дней. Сверху: последние 7 дней против вашей обычной нормы.</div>
+      <div class="tiles" id="sleepTiles"></div>
+      <h2 class="section">По дням, 90 дней</h2>
+      <div class="sgrid" id="sleepDaily"></div>
+      <h2 class="section">По неделям</h2>
+      <div class="sgrid" id="sleepWeekly"></div>
+      <div class="slegend" id="sleepLegend"></div><article class="card toolcard"><h3>Загрузить свои данные часов</h3><p>JSON в формате Health OS: days и norms. Учебные значения не подставляются вместо ваших.</p><form id="wearableForm"><input id="wearableFile" type="file" accept="application/json,.json" required><button class="action">Импортировать данные часов</button></form><p id="wearableStatus" role="status"></p></article>
+    </section>
+
+    <section class="module" id="m-visits">
+      <h1 class="mtitle">Визиты к врачам</h1>
+      <div class="mdesc">Новые сверху: диагноз, находки и рекомендации.</div>
+      <div id="visits"></div>
+    </section>
+
+    <section class="module" id="m-reminders">
+      <h1 class="mtitle"><svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" style="vertical-align:middle;color:#16836b"><path fill="currentColor" d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7z"/></svg> Напоминания</h1>
+      <div class="mdesc">Что и до какого числа пересдать, что просрочено и кто это рекомендовал.</div>
+      <div class="tldr" id="remsList"></div>
+      <div id="remsDone"></div>
+    </section>
+
+    <section class="module" id="m-profile">
+      <h1 class="mtitle">Профиль</h1>
+      <div class="mdesc">Контекст, с которым читаются все цифры.</div>
+      <div class="card profile" id="profile"></div><details class="card toolcard"><summary>Изменить профиль</summary><form id="profileForm"><label>Имя<input name="name" maxlength="120"></label><label>Дата рождения<input name="birth" type="date"></label><label>Пол<select name="sex"><option value="">Не указан</option><option>М</option><option>Ж</option></select></label><label>Диагнозы из документов<textarea name="diagnoses"></textarea></label><label>Препараты<textarea name="meds"></textarea></label><label>Заметки<textarea name="notes"></textarea></label><button class="action">Сохранить профиль</button><p id="profileStatus" role="status"></p></form></details>
+    </section>
+
+<section class="module" id="m-documents"><h1 class="mtitle">Документы</h1><div class="mdesc">PDF, фото и скриншоты анализов и заключений. До 3 МБ на файл.</div><article class="card toolcard"><h3>Добавить документ</h3><form id="uploadForm"><input id="files" type="file" accept="application/pdf,image/png,image/jpeg,image/webp" multiple required><button class="action" id="uploadButton">Сохранить и разобрать</button></form><p id="uploadStatus" role="status"></p><p>ИИ извлекает данные из документа. Важные цифры проверяйте по оригиналу.</p></article><article class="card toolcard"><h3>Мой архив</h3><div id="documents"></div><button id="export">Скачать копию данных</button></article></section>
+<section class="module" id="m-chat"><h1 class="mtitle">Чат по медкарте</h1><div class="mdesc">Вопросы по вашим анализам, визитам и данным часов.</div><article class="card toolcard"><div id="messages" aria-live="polite"></div><form id="chatForm"><label for="question">Ваш вопрос</label><textarea id="question" maxlength="3000" required placeholder="Как менялся мой холестерин?"></textarea><button class="action" id="askButton">Спросить</button></form></article></section><p id="error" role="alert"></p>    <footer>Личная медкарта. Разборы ИИ сверяйте с оригиналами документов.</footer>
+  </div></main>
+</div>
+
+<script src="chart.umd.min.js"></script>
+<script src="/workshop.js"></script><script type="module" src="/app.js"></script>
+</body>
+</html>
