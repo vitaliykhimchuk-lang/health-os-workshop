@@ -1,11 +1,5 @@
-__pycache__/
-.DS_Store
-dev/generated/
-.env
-data/.bot-owner
-inbox/
-dashboard/data.js
-dashboard/health-dashboard.html
-chart.png
-health-os.log
-bot.log
+node_modules/
+.env*
+!.env.example
+.vercel/
+access.txt
