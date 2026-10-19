@@ -3,11 +3,18 @@ import {createHash,randomUUID} from 'node:crypto';
 import {catalog,buildRecord,safeEqual,session,validSession} from '../lib/core.mjs';
 import {syncRing,ringDays,summarizeRing} from '../lib/ultrahuman.mjs';
 import {validateActivity,summarizeActivity} from '../lib/activity.mjs';
+import {parseAuto,packetId,autoDays} from '../lib/auto-activity.mjs';
 const opts={access:'private'};
 async function readJson(path){const r=await get(path,{...opts,useCache:false});if(!r?.stream)throw Error('Документ не найден');return new Response(r.stream).json();}
 async function entries(){let cursor,all=[];do{const r=await list({prefix:'records/',limit:100,cursor});all.push(...r.blobs);cursor=r.hasMore?r.cursor:undefined;}while(cursor);return Promise.all(all.map(b=>readJson(b.pathname)));}
 async function setting(name){const r=await get(`settings/${name}.json`,{...opts,useCache:false});return r?.stream?new Response(r.stream).json():null;}
-async function activityDays(){let cursor,all=[];do{const r=await list({prefix:'activity/watch/',limit:100,cursor});all.push(...r.blobs);cursor=r.hasMore?r.cursor:undefined;}while(cursor);return Promise.all(all.sort((a,b)=>b.pathname.localeCompare(a.pathname)).slice(0,90).map(b=>readJson(b.pathname)));}
+async function manualActivityDays(){let cursor,all=[];do{const r=await list({prefix:'activity/watch/',limit:100,cursor});all.push(...r.blobs);cursor=r.hasMore?r.cursor:undefined;}while(cursor);return Promise.all(all.sort((a,b)=>b.pathname.localeCompare(a.pathname)).slice(0,90).map(b=>readJson(b.pathname)));}
+async function activityDays(){
+ const manual=await manualActivityDays();let cursor,blobs=[];do{const r=await list({prefix:'activity/auto/',limit:1000,cursor});blobs.push(...r.blobs);cursor=r.hasMore?r.cursor:undefined;}while(cursor);
+ const dates=[...new Set(blobs.map(b=>b.pathname.split('/')[2]))].sort().slice(-90);
+ const packets=await Promise.all(blobs.filter(b=>dates.includes(b.pathname.split('/')[2])).map(b=>readJson(b.pathname)));
+ const merged=new Map(manual.map(d=>[d.date,d]));for(const d of autoDays(packets.sort((a,b)=>a.receivedAt.localeCompare(b.receivedAt))))merged.set(d.date,{...merged.get(d.date),...d,workouts:merged.get(d.date)?.workouts||[]});return [...merged.values()];
+}
 async function fullRecord(e){const record=buildRecord(e);const profile=await setting('profile');if(profile)record.profile={...record.profile,...profile};const garmin=await setting('garmin');if(garmin)record.garmin=garmin;const ring=summarizeRing(await ringDays());if(ring.days.length)record.ring=ring;const activity=summarizeActivity(await activityDays());if(activity.days.length)record.activity=activity;return record;}
 async function ai(content,schema){
  if(!process.env.OPENAI_API_KEY)throw Error('Не настроен ключ OpenAI');
@@ -28,6 +35,16 @@ export default async function handler(req,res){
    if(!process.env.CRON_SECRET||!safeEqual(req.headers.authorization||'','Bearer '+process.env.CRON_SECRET))return respond(401,{error:'Нет доступа'});
    return respond(200,await syncRing());
   }
+  if(path==='activity/receive'&&req.method==='POST'){
+   const connection=await setting('activity-connection');
+   if(!connection?.token||!safeEqual(req.headers.authorization||'','Bearer '+connection.token))return respond(401,{error:'Нет доступа'});
+   let parsed;try{parsed=parseAuto(req.body);}catch(e){return respond(422,{error:e.message});}
+   if(!parsed.groups.length)return respond(422,{error:'Нет записей с источником Apple Watch. Выберите часы, отключите агрегацию и отправляйте один показатель в автоматизации.',skipped:parsed.skipped});
+   const receivedAt=new Date().toISOString();
+   for(const group of parsed.groups)await put(`activity/auto/${group.date}/${group.field}/${packetId(group)}.json`,JSON.stringify({...group,receivedAt}),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});
+   await put('settings/activity-sync.json',JSON.stringify({receivedAt,groups:parsed.groups.length,skipped:parsed.skipped}),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});
+   return respond(200,{ok:true,groups:parsed.groups.length,skipped:parsed.skipped});
+  }
   if(!process.env.HEALTH_PASSWORD||!process.env.SESSION_SECRET)return respond(503,{error:'Вход ещё не настроен'});
   if(path==='login'&&req.method==='POST'){
    if(!safeEqual(req.body?.password||'',process.env.HEALTH_PASSWORD))return respond(401,{error:'Неверный пароль'});
@@ -35,6 +52,13 @@ export default async function handler(req,res){
   }
   const cookie=(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith('health_session='))?.slice(15);
   if(!validSession(cookie,process.env.SESSION_SECRET))return respond(401,{error:'Войдите по паролю'});
+  if(path==='activity/status'&&req.method==='GET')return respond(200,{sync:await setting('activity-sync')});
+  if(path==='activity/setup'&&req.method==='POST'){
+   let c=await setting('activity-connection');if(!c){c={token:randomUUID()+randomUUID()};await put('settings/activity-connection.json',JSON.stringify(c),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});}
+   const metric={steps:'Step Count',distance:'Walking + Running Distance',energy:'Active Energy',exercise:'Apple Exercise Time',pulse:'Resting Heart Rate'}[req.body?.metric];if(!metric)return respond(400,{error:'Неизвестный показатель'});
+   const q=new URLSearchParams({name:'Health OS — '+metric,url:'https://chimczuk.vercel.app/api/activity/receive',format:'json',datatype:'healthMetrics',enabled:'false',period:'none',interval:'none',aggregatedata:'false',exportversion:'v2',batchrequests:'true',syncinterval:'hours',syncquantity:'2',metrics:metric,headers:'Authorization,Bearer '+c.token});
+   return respond(200,{url:'com.HealthExport://automation?'+q});
+  }
   if(path==='ultrahuman/sync'&&req.method==='POST')return respond(200,await syncRing());
   if(path==='logout'&&req.method==='POST'){res.setHeader('Set-Cookie','health_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0');return respond(200,{ok:true});}
   if(path==='record'&&req.method==='GET'){const e=await entries();return respond(200,{record:await fullRecord(e),documents:e.map(({id,name,created,parsed})=>({id,name,created,dates:parsed.documents.map(d=>d.date)}))});}
