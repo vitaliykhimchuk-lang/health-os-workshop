@@ -1,3 +1,4 @@
+import './ring.js';
 import {bindActivityImport} from "./activity.mjs";
 const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const date=s=>new Date(s+'T12:00:00').toLocaleDateString('ru-RU');let history=[];
