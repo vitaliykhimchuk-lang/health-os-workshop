@@ -5,7 +5,7 @@ import {syncRing,ringDays,summarizeRing} from '../lib/ultrahuman.mjs';
 import {validateActivity,summarizeActivity} from '../lib/activity.mjs';
 import {parseAuto,packetId,autoDays} from '../lib/auto-activity.mjs';
 import {inPatient,patientContext,rawSave,rawRead,rawWrite,mutate} from '../lib/storage.mjs';
-import {ensureFamily,patients,getPatient,publicPatient,passwordHash,passwordMatches,patientSession,authenticatedPatient,rateLimit,createCode} from '../lib/family.mjs';
+import {ensureFamily,patients,getPatient,publicPatient,passwordHash,passwordMatches,patientSession,authenticatedPatient,rateLimit,createCode,loginWait,loginFailed,loginSucceeded} from '../lib/family.mjs';
 import {handleTelegram,telegramRequest} from '../lib/telegram.mjs';
 const opts={access:'private'};
 async function readJson(path){const r=await get(path,{...opts,useCache:false});if(!r?.stream)throw Object.assign(Error('Документ не найден'),{status:404});return new Response(r.stream).json();}
@@ -141,16 +141,16 @@ export default async function handler(req,res){
    });
   }
   if(path==='login'&&req.method==='POST'){
-   if(!await rateLimit('gate:'+String(req.headers['x-forwarded-for']||'').split(',')[0],15))return respond(429,{error:'Слишком много попыток. Подождите 15 минут.'});
-   if(!safeEqual(req.body?.password||'',process.env.HEALTH_PASSWORD))return respond(401,{error:'Неверный пароль'});
+   const key='gate:'+String(req.headers['x-forwarded-for']||'').split(',')[0];const wait=await loginWait(key,25);if(wait){res.setHeader('Retry-After',String(wait));return respond(429,{error:'Слишком много неверных паролей. Повторите через '+Math.ceil(wait/60)+' мин.',retryAfter:wait});}
+   if(!safeEqual(req.body?.password||'',process.env.HEALTH_PASSWORD)){await loginFailed(key);return respond(401,{error:'Неверный общий пароль'});}await loginSucceeded(key);
    res.setHeader('Set-Cookie',[`health_session=${session(process.env.SESSION_SECRET,Date.now()+7*86400000)}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=604800`,expirePatient]);return respond(200,{ok:true});
   }
   if(!validSession(cookieValue(req,'health_session'),process.env.SESSION_SECRET))return respond(401,{error:'Войдите по общему паролю',code:'GATE_REQUIRED'});
   if(path==='logout'&&req.method==='POST'){res.setHeader('Set-Cookie',['health_session=; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=0',expirePatient]);return respond(200,{ok:true});}
   if(path==='patients'&&req.method==='GET')return respond(200,{patients:(await patients()).map(publicPatient)});
   if(path==='patient/login'&&req.method==='POST'){
-   await ensureFamily();const p=await getPatient(req.body?.id);if(!await rateLimit('patient:'+String(req.headers['x-forwarded-for']||'').split(',')[0],12))return respond(429,{error:'Слишком много попыток. Подождите 15 минут.'});
-   if(!p||!passwordMatches(req.body?.password,p.passwordHash))return respond(403,{error:'Неверный личный пароль.'});res.setHeader('Set-Cookie',patientCookie(p));return respond(200,{patient:publicPatient(p)});
+   await ensureFamily();const p=await getPatient(req.body?.id);const key='patient:'+(p?.id||'unknown')+':'+String(req.headers['x-forwarded-for']||'').split(',')[0];const wait=await loginWait(key);if(wait){res.setHeader('Retry-After',String(wait));return respond(429,{error:'Слишком много неверных личных паролей. Повторите через '+Math.ceil(wait/60)+' мин.',retryAfter:wait});}
+   if(!p||!passwordMatches(req.body?.password,p.passwordHash)){await loginFailed(key);return respond(403,{error:'Неверный личный пароль.'});}await loginSucceeded(key);res.setHeader('Set-Cookie',patientCookie(p));return respond(200,{patient:publicPatient(p)});
   }
   if(path==='patient/lock'&&req.method==='POST'){res.setHeader('Set-Cookie',expirePatient);return respond(200,{ok:true});}
   const patient=await authenticatedPatient(cookieValue(req,'health_patient'),process.env.SESSION_SECRET);if(!patient)return respond(403,{error:'Выберите пациента и введите личный пароль.',code:'PATIENT_REQUIRED'});
