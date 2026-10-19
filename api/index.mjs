@@ -155,12 +155,12 @@ export default async function handler(req,res){
   if(path==='patient/lock'&&req.method==='POST'){res.setHeader('Set-Cookie',expirePatient);return respond(200,{ok:true});}
   const patient=await authenticatedPatient(cookieValue(req,'health_patient'),process.env.SESSION_SECRET);if(!patient)return respond(403,{error:'Выберите пациента и введите личный пароль.',code:'PATIENT_REQUIRED'});
   if(path==='patient/password'&&req.method==='POST'){
-   if(!passwordMatches(req.body?.current,patient.passwordHash))return respond(403,{error:'Неверный текущий личный пароль.'});if(typeof req.body?.password!=='string'||req.body.password.length<8||req.body.password.length>128)return respond(400,{error:'Новый пароль — от 8 до 128 символов.'});
+   if(!passwordMatches(req.body?.current,patient.passwordHash))return respond(403,{error:'Неверный текущий личный пароль.'});if(typeof req.body?.password!=='string'||req.body.password.length<4||req.body.password.length>128)return respond(400,{error:'Новый пароль — от 4 до 128 символов.'});
    const p=await mutate(`family/patients/${patient.id}.json`,old=>({...old,passwordHash:passwordHash(req.body.password),version:old.version+1}));res.setHeader('Set-Cookie',patientCookie(p));return respond(200,{ok:true,message:'Пароль изменён. Старые сессии и привязки Telegram отключены.'});
   }
   if(path==='patients/create'&&req.method==='POST'){
    if(patient.id!=='owner')return respond(403,{error:'Добавить карту может организатор семьи.'});if((await patients()).length>=20)return respond(400,{error:'Достигнут лимит семейных карт.'});
-   const {name,password,species}=req.body||{};if(typeof name!=='string'||!name.trim()||name.length>100||typeof password!=='string'||password.length<8||password.length>128||!['human','dog','cat'].includes(species))return respond(400,{error:'Укажите имя, вид пациента и пароль от 8 символов.'});
+   const {name,password,species}=req.body||{};if(typeof name!=='string'||!name.trim()||name.length>100||typeof password!=='string'||password.length<4||password.length>128||!['human','dog','cat'].includes(species))return respond(400,{error:'Укажите имя, вид пациента и пароль от 4 символов.'});
    const p={id:'p-'+randomUUID(),name:name.trim(),species,passwordHash:passwordHash(password),version:1};await rawWrite('family/patients/'+p.id+'.json',p);return respond(200,{patient:publicPatient(p)});
   }
   if(path==='telegram/link'&&req.method==='POST'){
