@@ -474,7 +474,7 @@ const NAV = [
   { id: "documents", ic: "📁", t: "Документы" },
   { id: "chat", ic: "💬", t: "Чат по медкарте" },
   { id: "profile", ic: "👤", t: "Профиль" },
-].filter(n => !n.hide);
+].filter(n => !n.hide && (D.profile.species === "human" || !["activity", "sleep"].includes(n.id)));
 $("nav").innerHTML = `<div class="navgrp"><div class="gt">Карта здоровья</div>` + NAV.map(n =>
   `<a class="navitem" href="#${n.id}" data-id="${n.id}"><span class="ni-ic">${n.ic}</span><span class="ni-tx">${n.t}</span>` +
   (n.b ? `<span class="ni-b${n.bc ? " " + n.bc : ""}">${n.b}</span>` : "") + `</a>`).join("") + `</div>`;

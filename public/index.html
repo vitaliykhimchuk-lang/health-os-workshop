@@ -7,12 +7,13 @@
 
 <link rel="stylesheet" href="/style.css">
 </head>
-<body><section id="login" class="login-panel card"><h1>Health OS</h1><p>Вход в вашу личную медкарту</p><form id="loginForm"><label for="password">Пароль медкарты</label><input id="password" type="password" autocomplete="current-password" required><button class="action">Открыть медкарту</button></form><p id="loginError" role="alert"></p></section>
+<body><section id="login" class="login-panel card"><h1>Health OS</h1><p>Семейная медкарта</p><form id="loginForm"><label for="password">Общий пароль семьи</label><input id="password" type="password" autocomplete="current-password" required><button class="action">Продолжить</button></form><p id="loginError" role="alert"></p></section>
+<section id="patientPicker" class="login-panel card" hidden><h1>Чья карта?</h1><p>У каждого пациента — свой пароль, документы и чат.</p><form id="patientLoginForm"><label for="patientSelect">Пациент</label><select id="patientSelect" required></select><label for="patientPassword">Личный пароль пациента</label><input id="patientPassword" type="password" autocomplete="current-password" required><button class="action">Открыть свою карту</button></form><p id="patientError" role="alert"></p></section>
 <div class="app" id="workspace" hidden>
   <aside class="sidebar">
     <div class="brand"><div class="bt">Health <span>OS</span></div><div class="bs">личная карта здоровья</div></div>
     <nav id="nav"></nav>
-    <div class="sidefoot">Ваша личная медкарта.<br><button id="logout">Выйти</button></div>
+    <div class="sidefoot">Ваша личная медкарта.<br><div id="currentPatient"></div><button id="switchPatient">Сменить пациента</button><br><button id="logout">Выйти</button></div>
   </aside>
   <main class="main"><div class="content">
 
@@ -59,7 +60,8 @@
       <div id="remsDone"></div>
     </section>
 
-    <section class="module" id="m-profile">
+    <section class="module" id="m-profile"><article class="card toolcard"><h3>Telegram для этой карты</h3><p>Один бот для семьи. Личная переписка и доступ только к подключённым картам. Подключайте свой Telegram из своей карты; для Питомец можно подключить Telegram обоих хозяев.</p><button id="linkTelegram" class="action">Подключить Telegram</button><p id="telegramLinkStatus" role="status"></p><div id="telegramLink"></div><p>Документы из Telegram сначала ожидают подтверждения получателя. Смена личного пароля отключает прежние привязки Telegram.</p></article><article class="card toolcard"><h3>Личный пароль этой карты</h3><form id="patientPasswordForm"><label>Текущий личный пароль<input name="current" type="password" autocomplete="current-password" required></label><label>Новый личный пароль<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><button class="action">Изменить личный пароль</button></form><p id="patientPasswordStatus" role="status"></p></article><article id="familyAdmin" class="card toolcard" hidden><h3>Добавить члена семьи</h3><p>Создайте отдельную карту для родителя или питомца. Передайте человеку общий пароль семьи и личный пароль его карты. Остальные карты ему не откроются.</p><form id="createPatientForm"><label>Имя<input name="name" maxlength="100" required></label><label>Пациент<select name="species"><option value="human">Человек</option><option value="dog">Собака</option><option value="cat">Кошка</option></select></label><label>Начальный личный пароль<input name="password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required></label><button class="action">Создать карту</button></form><p id="createPatientStatus" role="status"></p></article>
+
       <h1 class="mtitle">Профиль</h1>
       <div class="mdesc">Контекст, с которым читаются все цифры.</div>
       <div class="card profile" id="profile"></div><details class="card toolcard"><summary>Изменить профиль</summary><form id="profileForm"><label>Имя<input name="name" maxlength="120"></label><label>Дата рождения<input name="birth" type="date"></label><label>Пол<select name="sex"><option value="">Не указан</option><option>М</option><option>Ж</option></select></label><label>Диагнозы из документов<textarea name="diagnoses"></textarea></label><label>Препараты<textarea name="meds"></textarea></label><label>Заметки<textarea name="notes"></textarea></label><button class="action">Сохранить профиль</button><p id="profileStatus" role="status"></p></form></details>
