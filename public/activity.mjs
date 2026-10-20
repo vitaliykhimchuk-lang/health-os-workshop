@@ -1,5 +1,3 @@
-import {unzipSync,strFromU8} from './fflate.mjs';
-import {watchSources,parseAppleHealth} from './apple-health.mjs';
 const $=id=>document.getElementById(id);
 const fmt=(n,d=0)=>n===null||n===undefined?'—':Number(n.toFixed(d)).toLocaleString('ru-RU');
 const day=iso=>new Date(iso+'T12:00:00').toLocaleDateString('ru-RU',{day:'numeric',month:'short'});
@@ -29,14 +27,18 @@ export function renderActivity(activity){
  for(const w of workouts.slice(0,40)){const row=document.createElement('div');row.className='doc';row.textContent=`${day(w.date)} · ${types[w.type]||w.type.replace('HKWorkoutActivityType','')} · ${fmt(w.minutes,1)} мин`;$('activityWorkouts').appendChild(row);}
 }
 window.renderActivity=renderActivity;
-let xml=null;
 export function bindActivityImport(api){
- $('appleFile').onchange=async()=>{const f=$('appleFile').files[0];xml=null;$('appleImport').disabled=true;$('appleSource').replaceChildren();if(!f)return;$('activityImportStatus').textContent='Читаю экспорт на вашем устройстве…';try{
-  if(f.size>150*1024*1024)throw Error('Архив больше 150 МБ. Распакуйте его и выберите export.xml (до 300 МБ).');
-  if(f.name.toLowerCase().endsWith('.zip')){const archive=unzipSync(new Uint8Array(await f.arrayBuffer()),{filter:file=>/(^|\/)export\.xml$/i.test(file.name)&&file.originalSize<=300*1024*1024});const content=Object.values(archive)[0];if(!content)throw Error('В ZIP не найден export.xml до 300 МБ.');xml=strFromU8(content);}else xml=await f.text();
-  const sources=watchSources(xml);if(!sources.length)throw Error('Не нашёл записи с источником Apple Watch. Экспорт должен быть из Apple «Здоровье».');
-  for(const source of sources){const option=document.createElement('option');option.value=source;option.textContent=source;$('appleSource').appendChild(option);}
-  $('activityImportStatus').textContent=`Найдено источников часов: ${sources.length}. Выберите свои часы и нажмите «Импортировать». Сырые данные остаются в браузере; сохраняются только сводки активности.`;$('appleImport').disabled=false;
- }catch(e){xml=null;$('activityImportStatus').textContent=e.message;}};
- $('appleForm').onsubmit=async e=>{e.preventDefault();if(!xml)return;$('appleImport').disabled=true;try{const days=parseAppleHealth(xml,$('appleSource').value);if(!days.length)throw Error('Для выбранных часов не нашлось данных активности.');let total=0;for(let i=0;i<days.length;i+=90){$('activityImportStatus').textContent=`Сохраняю ${total} из ${days.length} дней…`;await api('activity/import',{days:days.slice(i,i+90)});total+=Math.min(90,days.length-i);}$('activityImportStatus').textContent=`Сохранено ${total} дней. Повторный импорт обновляет даты без удвоения шагов.`;location.reload();}catch(e){$('activityImportStatus').textContent=e.message;}finally{$('appleImport').disabled=false;}};
+ let worker=null,ready=false,busy=false;const status=$('activityImportStatus');status.setAttribute('aria-live','polite');
+ const say=text=>{status.textContent=text;};
+ const update=()=>{$('appleImport').disabled=!ready||busy||!$('appleSource').value;};
+ const save=async days=>{busy=true;update();let total=0;try{for(let i=0;i<days.length;i+=90){say(`Сохраняю ${total} из ${days.length} дней…`);await api('activity/import',{days:days.slice(i,i+90)});total+=Math.min(90,days.length-i);}say(`Сохранено ${total} дней. Открываю вашу активность…`);location.reload();}catch(e){say('Не удалось сохранить все дни: '+e.message+' Можно повторить импорт — шаги не удвоятся.');}finally{busy=false;update();}};
+ $('appleFile').onchange=()=>{worker?.terminate();worker=null;ready=false;busy=false;$('appleSource').replaceChildren();update();const file=$('appleFile').files[0];if(!file){say('Сначала выберите ZIP или XML из Apple «Здоровье».');return;}say(`Выбран ${file.name} (${(file.size/1024/1024).toFixed(1)} МБ). Подготавливаю обработку…`);
+  try{worker=new Worker(new URL('./activity-worker.mjs',import.meta.url),{type:'module'});
+   worker.onmessage=({data})=>{if(data.type==='progress')say(data.text);else if(data.type==='ready'){for(const source of data.sources){const o=document.createElement('option');o.value=source;o.textContent=source;$('appleSource').appendChild(o);}ready=true;busy=false;update();say(data.sources.length===1?'Часы найдены и выбраны. Теперь нажмите «Импортировать активность».':'Архив прочитан. Выберите свои часы в списке и нажмите «Импортировать активность».');}else if(data.type==='error'){busy=false;update();say(data.text);}else if(data.type==='days')save(data.days);};
+   worker.onerror=()=>{ready=false;busy=false;update();say('Не удалось обработать архив на этом устройстве. Попробуйте распаковать ZIP в «Файлах» и выбрать XML или открыть сайт на Mac.');};worker.postMessage({type:'read',file});
+  }catch(e){say('Не удалось начать обработку: '+e.message);}
+ };
+ $('appleSource').onchange=update;
+ $('appleForm').onsubmit=e=>{e.preventDefault();if(!ready||busy)return;busy=true;update();say('Обрабатываю выбранные часы…');worker.postMessage({type:'parse',source:$('appleSource').value});};
+ say('Выберите ZIP или XML. Кнопка включится, когда файл будет прочитан и найдены ваши часы.');
 }
