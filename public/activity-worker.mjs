@@ -1,4 +1,4 @@
-import {Unzip,UnzipInflate} from './fflate.mjs';
+import {zipEntries,extractEntry} from './zip-reader.mjs';
 import {watchSources,parseAppleHealth} from './apple-health.mjs';
 let xml=null;
 const progress=text=>postMessage({type:'progress',text});
@@ -10,10 +10,11 @@ function scanner(){let tail='',opened=false,closed=false,scanned=0,lastProgress=
  },finish(){if(!opened||!closed)return null;return '<HealthData>'+kept.join('\n')+'</HealthData>';}};}
 async function readExport(file){const isZip=/\.zip$/i.test(file.name)||/zip/i.test(file.type);if(file.size>(isZip?1024**3:2*1024**3))throw Error(isZip?'ZIP больше 1 ГБ. Для такого архива используйте Mac.':'XML больше 2 ГБ. Для такого архива используйте Mac.');
  progress(isZip?'Читаю ZIP по частям на вашем устройстве. Большой экспорт может обрабатываться несколько минут…':'Читаю XML по частям на вашем устройстве…');
- const reader=file.stream().getReader();let result=null;let foundXml=false;
- if(!isZip){const scan=scanner();try{for(;;){const {done,value}=await reader.read();if(done)break;scan.push(value);}scan.push(new Uint8Array(),true);return scan.finish();}finally{await reader.cancel();}}
- const unzip=new Unzip(entry=>{if(!/\.xml$/i.test(entry.name)||/(?:export_cda|workout|route)/i.test(entry.name))return;foundXml=true;const scan=scanner();entry.ondata=(error,bytes,final)=>{if(error)throw Error('Не удалось распаковать ZIP. Проверьте, что архив полностью скачан из iCloud.');scan.push(bytes,final);if(final){const parsed=scan.finish();if(parsed&&!result)result=parsed;}};entry.start();});unzip.register(UnzipInflate);
- try{for(;;){const {done,value}=await reader.read();if(done)break;unzip.push(value,false);}unzip.push(new Uint8Array(),true);}finally{await reader.cancel();}
+ let result=null;let foundXml=false;
+ if(!isZip){const reader=file.stream().getReader();const scan=scanner();try{for(;;){const {done,value}=await reader.read();if(done)break;scan.push(value);}scan.push(new Uint8Array(),true);return scan.finish();}finally{await reader.cancel();}}
+ const entries=(await zipEntries(file)).filter(e=>/\.xml$/i.test(e.name)&&!/(?:export_cda|workout|route)/i.test(e.name));
+ for(const entry of entries){foundXml=true;const scan=scanner();await extractEntry(file,entry,(bytes,final)=>scan.push(bytes,final));result=scan.finish();if(result)break;}
+
  if(!foundXml)throw Error('В ZIP нет XML из Apple «Здоровье». Нужен полный экспорт здоровья, а не GPX тренировки.');return result;
 }
 self.onmessage=async({data})=>{try{
