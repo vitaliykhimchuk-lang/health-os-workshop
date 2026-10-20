@@ -8,7 +8,7 @@ function empty(text){return `<p>${esc(text)}</p>`;}
 function chart(b){const s=b.series;if(s.length<2)return '';const vals=s.map(x=>x.value),lo=Math.min(...vals),hi=Math.max(...vals),pad=Math.max((hi-lo)*.15,Math.abs(hi)*.05,.1),min=lo-pad,max=hi+pad;const x=i=>30+i/(s.length-1)*440,y=v=>115-(v-min)/(max-min)*95;return `<svg class="series" viewBox="0 0 500 140" role="img" aria-label="${esc(b.name)}: история показателя"><text x="0" y="16" font-size="11" fill="#74837d">${esc(max.toFixed(1))}</text><text x="0" y="118" font-size="11" fill="#74837d">${esc(min.toFixed(1))}</text><polyline fill="none" stroke="#2b8a68" stroke-width="3" points="${s.map((p,i)=>`${x(i)},${y(p.value)}`).join(' ')}"/>${s.map((p,i)=>`<circle cx="${x(i)}" cy="${y(p.value)}" r="4" fill="${p.flag==='ok'?'#2b8a68':'#bd7d2c'}"><title>${esc(date(p.date))}: ${esc(p.value)} ${esc(b.unit)}</title></circle>`).join('')}<text x="30" y="138" font-size="10" fill="#74837d">${esc(date(s[0].date))}</text><text x="470" y="138" text-anchor="end" font-size="10" fill="#74837d">${esc(date(s.at(-1).date))}</text></svg>`;}
 const rawData={};
 function safeData(v){if(typeof v==='string')return esc(v);if(Array.isArray(v))return v.map(safeData);if(v&&typeof v==='object')return Object.fromEntries(Object.entries(v).map(([k,x])=>[k,safeData(x)]));return v;}
-async function refresh(){const {record:r,documents:d,patient}=await api('record');$('currentPatient').textContent=patient.name;$('familyAdmin').hidden=!patient.admin;$('syncRing').hidden=patient.id!=='owner';$('patientPicker').hidden=true;watchStatus();rawData.record=r;rawData.documents=d;r.profile={birth:'',sex:'',diagnoses:[],meds:[],notes:[],...r.profile};
+async function refresh(){const {record:r,documents:d,patient}=await api('record');$('currentPatient').textContent=patient.name;$('familyAdmin').hidden=!patient.admin;$('syncRing').hidden=patient.id!=='owner';$('patientPicker').hidden=true;rawData.record=r;rawData.documents=d;r.profile={birth:'',sex:'',diagnoses:[],meds:[],notes:[],...r.profile};
  $('workspace').hidden=false;$('login').hidden=true;
  window.renderWorkshop(safeData(r));
  if(patient.id!=="owner"&&!r.activity)$("activityState").textContent="Данные часов этой карты ещё не подключены. Данные кольца организатора здесь не используются.";
@@ -33,10 +33,6 @@ $('wearableForm').onsubmit=async e=>{e.preventDefault();const button=e.submitter
 $("syncRing").onclick=async()=>{const b=$("syncRing");b.disabled=true;$("ringStatus").textContent="Получаю данные кольца за последние 7 дней…";try{const r=await api("ultrahuman/sync",{});$("ringStatus").textContent=r.message;location.reload();}catch(e){$("ringStatus").textContent=e.message;}finally{b.disabled=false;}};
 
 bindActivityImport(api);
-
-for(const button of document.querySelectorAll('.autoWatch'))button.onclick=async()=>{try{const c=await api('activity/setup',{metric:button.dataset.metric});$('autoWatchMessage').textContent='Открываю Health Auto Export. Настройте источник Apple Watch перед включением.';window.location.assign(c.url);}catch(e){$('autoWatchMessage').textContent=e.message;}};
-async function watchStatus(){try{const {sync}=await api('activity/status');if(sync)$('autoWatchStatus').textContent='Последняя автоматическая передача: '+new Date(sync.receivedAt).toLocaleString('ru-RU')+'. Принято групп: '+sync.groups+'. Пропущено записей без подтверждённого источника: '+sync.skipped;}catch{}}
-window.addEventListener('hashchange',()=>{if(location.hash==='#activity')watchStatus();});
 
 $('patientLoginForm').onsubmit=async e=>{e.preventDefault();e.submitter.disabled=true;try{await api('patient/login',{id:$('patientSelect').value,password:$('patientPassword').value});$('patientPassword').value='';location.reload();}catch(x){$('patientError').textContent=x.message;}finally{e.submitter.disabled=false;}};
 $('switchPatient').onclick=async()=>{await api('patient/lock',{});location.reload();};
