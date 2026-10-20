@@ -41,10 +41,10 @@
       <div class="mdesc">Данные часов за 90 дней. Сверху: последние 7 дней против вашей обычной нормы.</div>
       <div class="tiles" id="sleepTiles"></div>
       <h2 class="section">По дням, 90 дней</h2>
-      <article class="card toolcard"><h3>Кольцо Ultrahuman</h3><p>Сон, ночной пульс, HRV и другие доступные данные кольца. Шаги Apple Watch подключим отдельно.</p><button id="syncRing" class="action">Синхронизировать кольцо</button><p id="ringStatus" role="status"></p></article><div class="sgrid" id="sleepDaily"></div>
+      <div class="sgrid" id="sleepDaily"></div>
       <h2 class="section">По неделям</h2>
       <div class="sgrid" id="sleepWeekly"></div>
-      <div class="slegend" id="sleepLegend"></div><article class="card toolcard"><h3>Загрузить свои данные часов</h3><p>JSON в формате Health OS: days и norms. Учебные значения не подставляются вместо ваших.</p><form id="wearableForm"><input id="wearableFile" type="file" accept="application/json,.json" required><button class="action">Импортировать данные часов</button></form><p id="wearableStatus" role="status"></p></article>
+      <div class="slegend" id="sleepLegend"></div><details class="card toolcard sleep-source-settings"><summary>Настройки источников данных</summary><article class="card toolcard"><h3>Кольцо Ultrahuman</h3><p>Кольцо обновляется автоматически раз в сутки. Кнопки ниже нужны только для внеплановой синхронизации или повторной загрузки истории. Данные Apple Watch доступны в разделе «Активность».</p><button id="syncRing" class="action">Синхронизировать кольцо</button><p id="ringStatus" role="status"></p></article><article class="card toolcard"><h3>Ручной импорт других часов</h3><p>Дополнительный импорт JSON в формате Health OS (days и norms). Для автоматических данных Ultrahuman этот файл не нужен.</p><form id="wearableForm"><input id="wearableFile" type="file" accept="application/json,.json" required><button class="action">Импортировать данные часов</button></form><p id="wearableStatus" role="status"></p></article></details>
     </section>
 
     <section class="module" id="m-visits">
