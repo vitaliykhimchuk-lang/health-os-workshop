@@ -12,10 +12,10 @@ const opts={access:'private'};
 async function readJson(path){const r=await get(path,{...opts,useCache:false});if(!r?.stream)throw Object.assign(Error('Документ не найден'),{status:404});return new Response(r.stream).json();}
 async function entries(){let cursor,all=[];do{const r=await list({prefix:'records/',limit:100,cursor});all.push(...r.blobs);cursor=r.hasMore?r.cursor:undefined;}while(cursor);return Promise.all(all.map(b=>readJson(b.pathname)));}
 async function setting(name){const r=await get(`settings/${name}.json`,{...opts,useCache:false});return r?.stream?new Response(r.stream).json():null;}
-async function manualActivityDays(){let cursor,all=[];do{const r=await list({prefix:'activity/watch/',limit:100,cursor});all.push(...r.blobs);cursor=r.hasMore?r.cursor:undefined;}while(cursor);return Promise.all(all.sort((a,b)=>b.pathname.localeCompare(a.pathname)).slice(0,90).map(b=>readJson(b.pathname)));}
+async function manualActivityDays(){let cursor,all=[];do{const r=await list({prefix:'activity/watch/',limit:100,cursor});all.push(...r.blobs);cursor=r.hasMore?r.cursor:undefined;}while(cursor);return Promise.all(all.sort((a,b)=>b.pathname.localeCompare(a.pathname)).slice(0,365).map(b=>readJson(b.pathname)));}
 async function activityDays(){
  const manual=await manualActivityDays();let cursor,blobs=[];do{const r=await list({prefix:'activity/auto/',limit:1000,cursor});blobs.push(...r.blobs);cursor=r.hasMore?r.cursor:undefined;}while(cursor);
- const dates=[...new Set(blobs.map(b=>b.pathname.split('/')[2]))].sort().slice(-90);
+ const dates=[...new Set(blobs.map(b=>b.pathname.split('/')[2]))].sort().slice(-365);
  const packets=await Promise.all(blobs.filter(b=>dates.includes(b.pathname.split('/')[2])).map(b=>readJson(b.pathname)));
  const merged=new Map(manual.map(d=>[d.date,d]));for(const d of autoDays(packets.sort((a,b)=>a.receivedAt.localeCompare(b.receivedAt))))merged.set(d.date,{...merged.get(d.date),...d,workouts:merged.get(d.date)?.workouts||[]});return [...merged.values()];
 }

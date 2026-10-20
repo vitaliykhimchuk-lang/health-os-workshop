@@ -467,7 +467,7 @@ $("profile").innerHTML = `
 const NAV = [
   { id: "overview", ic: "🏠", t: "Обзор" },
   { id: "analyses", ic: "🩸", t: "Анализы", b: D.biomarkers.length, init: renderLabs },
-  { id: "activity", ic: "🏃", t: "Активность", init: () => window.renderActivity(D.activity || null) },
+  { id: "activity", ic: "🏃", t: "Активность", init: () => window.renderActivity(D.activity || null, D.ring || null) },
   { id: "sleep", ic: "⌚", t: "Сон и пульс", init: renderSleep },
   { id: "visits", ic: "🩺", t: "Визиты к врачам", b: D.visits.length || null },
   { id: "reminders", ic: `<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" style="vertical-align:middle;color:#16836b"><path fill="currentColor" d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7z"/></svg>`, t: "Напоминания", b: remBadge && remBadge.n, bc: remBadge && remBadge.cls },
