@@ -15,7 +15,7 @@ async function refresh(){const {record:r,documents:d,patient}=await api('record'
  $('overviewEmpty').hidden=!!d.length;
  if(!r.biomarkers.length)$('labs').innerHTML=empty('Показателей пока нет. Загрузите свой анализ в разделе «Документы».');
  if(!r.tldr.length)$('tldr').innerHTML=empty('После загрузки документов здесь появится сводка показателей.');
- $('documents').innerHTML=d.length?d.sort((a,b)=>b.created.localeCompare(a.created)).map(x=>`<div class="doc"><a href="/api/file?id=${encodeURIComponent(x.id)}">${esc(x.name)}</a><small>${x.dates.map(date).map(esc).join(', ')}</small></div>`).join(''):empty('Ваших документов пока нет.');
+ $('documents').innerHTML=d.length?d.sort((a,b)=>b.created.localeCompare(a.created)).map(x=>`<div class="doc"><a href="/api/file?id=${encodeURIComponent(x.id)}">${esc(x.name)}</a><small>${x.parseStatus==='unparsed'?'Оригинал сохранён · без автоматического разбора':x.dates.map(date).map(esc).join(', ')}</small></div>`).join(''):empty('Ваших документов пока нет.');
  for(const k of ['name','birth','sex','diagnoses','meds','notes']){const el=$('profileForm').elements.namedItem(k);el.value=Array.isArray(r.profile[k])?r.profile[k].join('\n'):r.profile[k]||'';}
 }
 $('loginForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('login',{password:$('password').value});$('password').value='';$('loginError').textContent='';await showPatients();}catch(x){$('loginError').textContent=x.message;}finally{b.disabled=false;}};

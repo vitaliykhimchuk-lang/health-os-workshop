@@ -1,3 +1,4 @@
+import {prepareDocument,archiveOnly,withParsed,documentError} from '../lib/document-input.mjs';
 import {validateSleepContext} from '../lib/sleep-context.mjs';
 import {put,get,list,scopedPath} from '../lib/storage.mjs';
 import {createHash,randomUUID} from 'node:crypto';
@@ -51,7 +52,7 @@ async function medicalHandler(req,res){
   }
   if(path==='ultrahuman/sync'&&req.method==='POST'){if(patientContext().id!=='owner')return respond(403,{error:'Это кольцо подключено к другой карте.'});return respond(200,await syncRing());}
   
-  if(path==='record'&&req.method==='GET'){const e=await entries();return respond(200,{patient:publicPatient(patientContext()),record:await fullRecord(e),documents:e.map(({id,name,created,parsed})=>({id,name,created,dates:parsed.documents.map(d=>d.date)}))});}
+  if(path==='record'&&req.method==='GET'){const e=await entries();return respond(200,{patient:publicPatient(patientContext()),record:await fullRecord(e),documents:e.map(({id,name,created,parsed,parseStatus})=>({id,name,created,parseStatus:parseStatus||'parsed',dates:parsed.documents.map(d=>d.date).filter(Boolean)}))});}
   if(path==='export'&&req.method==='GET'){const e=await entries();return respond(200,{record:await fullRecord(e),entries:e});}
   if(path==='sleep/context'&&req.method==='GET')return respond(200,{context:await setting('sleep-context')||{}});
   if(path==='sleep/context'&&req.method==='POST'){
@@ -101,24 +102,19 @@ export function patientWarning(name,patient){
  if(aliases.some(a=>normalize(a)===n))return null;
  return 'В документе указано «'+name+'». Выбрана карта «'+patient.name+'». Подтвердите получателя или переключите карту.';
 }
-function documentError(message,status=400){return Object.assign(Error(message),{status});}
 export async function parseDocument(input,maxBytes=3000000){
- const {name,type,data}=input||{};if(!['application/pdf','image/png','image/jpeg','image/webp'].includes(type)||typeof data!=='string'||data.length>Math.ceil(maxBytes*4/3)+8)throw documentError('Выберите PDF или изображение допустимого размера.');
- const bytes=Buffer.from(data,'base64');if(!bytes.length||bytes.length>maxBytes)throw documentError('Файл слишком большой.');
- const signature=type==='application/pdf'?bytes.subarray(0,5).toString()==='%PDF-':type==='image/png'?bytes.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):type==='image/jpeg'?bytes[0]===255&&bytes[1]===216:bytes.subarray(0,4).toString()==='RIFF'&&bytes.subarray(8,12).toString()==='WEBP';
- if(!signature)throw documentError('Содержимое не соответствует формату файла.');
- const cleanName=String(name||'document').replace(/[\r\n]/g,'').slice(0,180);
+ const prepared=prepareDocument(input,maxBytes);const {type,data}=prepared;
  const schema=structuredClone(catalog.schema);schema.required.push('patientName','patientSpecies');schema.properties.patientName={type:'string',description:'Имя пациента, напечатанное в документе, без догадок; пустая строка если не видно'};schema.properties.patientSpecies={type:'string',enum:['human','dog','cat','unknown']};
- const content=[{type:'input_text',text:catalog.prompt+' Дополнительно прочитай имя пациента и вид животного, если это ветеринарный документ. Не угадывай имя по названию файла. Для животных не используй человеческие нормы из справочника; ref и flag только из самого документа.'},type==='application/pdf'?{type:'input_file',filename:'document.pdf',file_data:`data:${type};base64,${data}`}:{type:'input_image',image_url:`data:${type};base64,${data}`}];
- const parsed=await ai(content,schema);if(!parsed.documents.some(d=>d.doc_type==='visit'||d.doc_type==='analysis'&&d.markers.length))throw documentError('Не удалось прочитать анализ или заключение. Попробуйте более чёткий документ.',422);
- return {id:createHash('sha256').update(bytes).digest('hex'),name:cleanName,type,data,parsed,patientName:parsed.patientName,patientSpecies:parsed.patientSpecies};
+ const docSchema=schema.properties.documents.items;docSchema.required.push('summary');docSchema.properties.summary={type:'string',description:'Для отчёта кольца, часов или другого документа: краткое содержание, период, все разборчивые ключевые значения с единицами и датами. Для analysis/visit — краткое содержание без новых фактов.'};
+ const content=[{type:'input_text',text:catalog.prompt+' Отчёты Ultrahuman, Oura, Apple Watch, сна, активности и другие документы принимай как doc_type=other; подробно заполни summary фактическими данными и периодом. Они не являются лабораторными анализами или визитами: markers и reminders пустые, visit — пустые строки и recs пустой массив. Не ставь диагнозы и не применяй нормы анализов к метрикам носимых устройств. Если дата не видна, date — пустая строка. '+' Дополнительно прочитай имя пациента и вид животного, если это ветеринарный документ. Не угадывай имя по названию файла. Для животных не используй человеческие нормы из справочника; ref и flag только из самого документа.'},type==='application/pdf'?{type:'input_file',filename:'document.pdf',file_data:`data:${type};base64,${data}`}:{type:'input_image',image_url:`data:${type};base64,${data}`}];
+ try{return withParsed(prepared,await ai(content,schema));}catch(e){console.error('Document parse unavailable',e.name);return archiveOnly(prepared);}
 }
 export async function saveDocument(input){
  const patient=patientContext();if(input.patientSpecies&&input.patientSpecies!=='unknown'&&input.patientSpecies!==patient.species)throw documentError('Вид пациента в документе не соответствует выбранной карте.',422);
- const {id,name,type,data,parsed}=input;const existing=await list({prefix:`records/${id}.json`,limit:1});if(existing.blobs.length)return {ok:true,message:'Этот документ уже есть в этой карте.'};
+ const {id,name,type,data,parsed,parseStatus='parsed'}=input;const existing=await list({prefix:`records/${id}.json`,limit:1});if(existing.blobs.length)return {ok:true,message:'Этот документ уже есть в этой карте.'};
  const ext={'application/pdf':'pdf','image/png':'png','image/jpeg':'jpg','image/webp':'webp'}[type];const path=`originals/${id}.${ext}`;
  await put(path,Buffer.from(data,'base64'),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:type});
- await put(`records/${id}.json`,JSON.stringify({id,path,name,type,created:new Date().toISOString(),parsed}),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});return {ok:true,message:'Документ сохранён в карту «'+patient.name+'».'};
+ await put(`records/${id}.json`,JSON.stringify({id,path,name,type,created:new Date().toISOString(),parsed,parseStatus}),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});return {ok:true,message:'Документ сохранён в карту «'+patient.name+'».'+(parseStatus==='unparsed'?' Оригинал доступен в разделе «Документы». Автоматический разбор не выполнен; новые показатели не добавлены.':'')};
 }
 export async function askPatient(question,history=[]){const record=await fullRecord(await entries());return ai([{type:'input_text',text:JSON.stringify({today:new Date().toISOString().slice(0,10),record,history,question})}]);}
 const cookieValue=(req,name)=>(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(name+'='))?.slice(name.length+1);
