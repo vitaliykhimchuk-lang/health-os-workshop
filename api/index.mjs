@@ -85,7 +85,7 @@ async function medicalHandler(req,res){
   if(path==='upload'&&req.method==='POST'){
    const parsed=await parseDocument(req.body);const warning=patientWarning(parsed.patientName,patientContext());
    if(warning&&!req.body.confirmPatient)return respond(409,{error:warning,patientConfirmation:true});
-   return respond(200,await saveDocument(parsed));
+   return respond(200,await saveDocument(parsed,{replaceUnparsed:true}));
   }
   if(path==='ask'&&req.method==='POST'){
    const question=String(req.body?.question||'').trim();if(!question||question.length>3000)return respond(400,{error:'Вопрос должен быть от 1 до 3000 символов'});
@@ -109,12 +109,12 @@ export async function parseDocument(input,maxBytes=3000000){
  const content=[{type:'input_text',text:catalog.prompt+' Отчёты Ultrahuman, Oura, Apple Watch, сна, активности и другие документы принимай как doc_type=other; подробно заполни summary фактическими данными и периодом. Они не являются лабораторными анализами или визитами: markers и reminders пустые, visit — пустые строки и recs пустой массив. Не ставь диагнозы и не применяй нормы анализов к метрикам носимых устройств. Если дата не видна, date — пустая строка. '+' Дополнительно прочитай имя пациента и вид животного, если это ветеринарный документ. Не угадывай имя по названию файла. Для животных не используй человеческие нормы из справочника; ref и flag только из самого документа.'},type==='application/pdf'?{type:'input_file',filename:'document.pdf',file_data:`data:${type};base64,${data}`}:{type:'input_image',image_url:`data:${type};base64,${data}`}];
  try{return withParsed(prepared,await ai(content,schema));}catch(e){console.error('Document parse unavailable',e.name);return archiveOnly(prepared);}
 }
-export async function saveDocument(input){
+export async function saveDocument(input,{replaceUnparsed=false}={}){
  const patient=patientContext();if(input.patientSpecies&&input.patientSpecies!=='unknown'&&input.patientSpecies!==patient.species)throw documentError('Вид пациента в документе не соответствует выбранной карте.',422);
- const {id,name,type,data,parsed,parseStatus='parsed'}=input;const existing=await list({prefix:`records/${id}.json`,limit:1});if(existing.blobs.length)return {ok:true,message:'Этот документ уже есть в этой карте.'};
+ const {id,name,type,data,parsed,parseStatus='parsed'}=input;const existing=await list({prefix:`records/${id}.json`,limit:1});const previous=existing.blobs.length?await readJson(`records/${id}.json`):null;if(previous&&(!replaceUnparsed||previous.parseStatus!=='unparsed'))return {ok:true,parseStatus:previous.parseStatus||'parsed',message:'Этот документ уже есть в этой карте.'};
  const ext={'application/pdf':'pdf','image/png':'png','image/jpeg':'jpg','image/webp':'webp'}[type];const path=`originals/${id}.${ext}`;
- await put(path,Buffer.from(data,'base64'),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:type});
- await put(`records/${id}.json`,JSON.stringify({id,path,name,type,created:new Date().toISOString(),parsed,parseStatus}),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});return {ok:true,message:'Документ сохранён в карту «'+patient.name+'».'+(parseStatus==='unparsed'?' Оригинал доступен в разделе «Документы». Автоматический разбор не выполнен; новые показатели не добавлены.':'')};
+ if(!previous)await put(path,Buffer.from(data,'base64'),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:type});
+ await put(`records/${id}.json`,JSON.stringify({id,path,name,type,created:previous?.created||new Date().toISOString(),parsed,parseStatus}),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});return {ok:true,message:'Документ сохранён в карту «'+patient.name+'».'+(parseStatus==='unparsed'?' Оригинал доступен в разделе «Документы». Автоматический разбор не выполнен; новые показатели не добавлены.':'')};
 }
 export async function askPatient(question,history=[]){const record=await fullRecord(await entries());return ai([{type:'input_text',text:JSON.stringify({today:new Date().toISOString().slice(0,10),record,history,question})}]);}
 const cookieValue=(req,name)=>(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(name+'='))?.slice(name.length+1);
