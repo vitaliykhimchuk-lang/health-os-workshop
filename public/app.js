@@ -1,4 +1,5 @@
 import './ring.js';
+import {renderBody} from './body.mjs';
 import {bindActivityImport} from "./activity.mjs";
 const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const date=s=>new Date(s+'T12:00:00').toLocaleDateString('ru-RU');let history=[];
@@ -11,6 +12,7 @@ function safeData(v){if(typeof v==='string')return esc(v);if(Array.isArray(v))re
 async function refresh(){const {record:r,documents:d,patient}=await api('record');$('currentPatient').textContent=patient.name;$('currentPatient').dataset.patientId=patient.id;$('familyAdmin').hidden=!patient.admin;$('syncRing').hidden=patient.id!=='owner';$('patientPicker').hidden=true;rawData.record=r;rawData.documents=d;r.profile={birth:'',sex:'',diagnoses:[],meds:[],notes:[],...r.profile};
  $('workspace').hidden=false;$('login').hidden=true;
  window.renderWorkshop(safeData(r));
+ renderBody(r.bodyMeasurements||[]);
  if(patient.id!=="owner"&&!r.activity)$("activityState").textContent="Данные часов этой карты ещё не подключены. Данные кольца организатора здесь не используются.";
  $('overviewEmpty').hidden=!!d.length;
  if(!r.biomarkers.length)$('labs').innerHTML=empty('Показателей пока нет. Загрузите свой анализ в разделе «Документы».');
