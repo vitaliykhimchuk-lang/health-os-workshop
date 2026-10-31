@@ -15,6 +15,7 @@ async function refresh(){const {record:r,documents:d,patient}=await api('record'
  window.renderWorkshop(safeData(r));
  renderBody(r.bodyMeasurements||[]);
  renderOverview(r,d);
+ $('overviewLabTitle').hidden=!r.biomarkers.length;$('tiles').hidden=!r.biomarkers.length;$('overviewStatusTitle').hidden=!r.tldr.length;$('tldr').hidden=!r.tldr.length;
  if(patient.id!=="owner"&&!r.activity)$("activityState").textContent="Данные часов этой карты ещё не подключены. Данные кольца организатора здесь не используются.";
  $('overviewEmpty').hidden=!!d.length;
  if(!r.biomarkers.length)$('labs').innerHTML=empty('Показателей пока нет. Загрузите свой анализ в разделе «Документы».');
