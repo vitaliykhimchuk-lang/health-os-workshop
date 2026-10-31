@@ -1,4 +1,5 @@
 import './ring.js';
+import {renderOverview} from './overview.mjs';
 import {renderBody} from './body.mjs';
 import {bindActivityImport} from "./activity.mjs";
 const $=id=>document.getElementById(id);const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -13,13 +14,14 @@ async function refresh(){const {record:r,documents:d,patient}=await api('record'
  $('workspace').hidden=false;$('login').hidden=true;
  window.renderWorkshop(safeData(r));
  renderBody(r.bodyMeasurements||[]);
+ renderOverview(r,d);
  if(patient.id!=="owner"&&!r.activity)$("activityState").textContent="Данные часов этой карты ещё не подключены. Данные кольца организатора здесь не используются.";
  $('overviewEmpty').hidden=!!d.length;
  if(!r.biomarkers.length)$('labs').innerHTML=empty('Показателей пока нет. Загрузите свой анализ в разделе «Документы».');
  if(!r.tldr.length)$('tldr').innerHTML=empty('После загрузки документов здесь появится сводка показателей.');
  $('documents').innerHTML=d.length?d.sort((a,b)=>b.created.localeCompare(a.created)).map(x=>`<div class="doc"><a href="/api/file?id=${encodeURIComponent(x.id)}">${esc(x.name)}</a><small>${x.parseStatus==='unparsed'?'Оригинал сохранён · разбор ожидается или требует проверки':x.dates.map(date).map(esc).join(', ')}${x.parseStatus==='unparsed'?` <button data-retry-document="${x.id}">Повторить разбор</button>`:''}</small></div>`).join(''):empty('Ваших документов пока нет.');
  $('documents').querySelectorAll('[data-retry-document]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{const result=await api('document/retry',{id:b.dataset.retryDocument});$('uploadStatus').textContent=result.message;await refresh();}catch(e){$('uploadStatus').textContent=e.message;}finally{b.disabled=false;}});
- for(const k of ['name','birth','sex','diagnoses','meds','notes']){const el=$('profileForm').elements.namedItem(k);el.value=Array.isArray(r.profile[k])?r.profile[k].join('\n'):r.profile[k]||'';}
+ for(const k of ['name','birth','sex','bloodGroup','allergies','diagnoses','meds','notes']){const el=$('profileForm').elements.namedItem(k);el.value=Array.isArray(r.profile[k])?r.profile[k].join('\n'):r.profile[k]||'';}
 }
 $('loginForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('login',{password:$('password').value});$('password').value='';$('loginError').textContent='';await showPatients();}catch(x){$('loginError').textContent=x.message;}finally{b.disabled=false;}};
 $('logout').onclick=async()=>{await api('logout',{});history=[];$('messages').replaceChildren();$('workspace').hidden=true;$('login').hidden=false;};

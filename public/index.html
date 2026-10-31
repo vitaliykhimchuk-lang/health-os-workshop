@@ -19,7 +19,8 @@
 
     <section class="module" id="m-overview">
       <div class="hero"><div class="avatar" id="avatar"></div><div><h1 id="name"></h1><div class="hm" id="meta"></div></div></div>
-      <h2 class="section">Ключевые цифры</h2>
+      <div id="personalOverview"></div>
+      <h2 class="section">Показатели из анализов</h2>
       <div class="tiles" id="tiles"></div><div id="overviewEmpty" class="card" hidden><h3>Начните со своего документа</h3><p>Медкарта пока пуста. Загрузите анализ или заключение врача, чтобы увидеть показатели и графики.</p><a href="#documents">Добавить документ →</a></div>
       <h2 class="section">Статус: на что смотреть</h2>
       <div class="tldr" id="tldr"></div>
@@ -65,7 +66,7 @@
 
       <h1 class="mtitle">Профиль</h1>
       <div class="mdesc">Контекст, с которым читаются все цифры.</div>
-      <div class="card profile" id="profile"></div><details class="card toolcard"><summary>Изменить профиль</summary><form id="profileForm"><label>Имя<input name="name" maxlength="120"></label><label>Дата рождения<input name="birth" type="date"></label><label>Пол<select name="sex"><option value="">Не указан</option><option>М</option><option>Ж</option></select></label><label>Диагнозы из документов<textarea name="diagnoses"></textarea></label><label>Препараты<textarea name="meds"></textarea></label><label>Заметки<textarea name="notes"></textarea></label><button class="action">Сохранить профиль</button><p id="profileStatus" role="status"></p></form></details>
+      <div class="card profile" id="profile"></div><details class="card toolcard"><summary>Изменить профиль</summary><form id="profileForm"><label>Имя<input name="name" maxlength="120"></label><label>Дата рождения<input name="birth" type="date"></label><label>Пол<select name="sex"><option value="">Не указан</option><option>М</option><option>Ж</option></select></label><label>Группа крови<select name="bloodGroup"><option value="">Не указана</option><option>O−</option><option>O+</option><option>A−</option><option>A+</option><option>B−</option><option>B+</option><option>AB−</option><option>AB+</option></select></label><label>Аллергии и реакции<textarea name="allergies" placeholder="Что известно: вещество и реакция. Если сведений нет, оставьте пустым."></textarea></label><label>Диагнозы из документов<textarea name="diagnoses"></textarea></label><label>Препараты<textarea name="meds"></textarea></label><label>Заметки<textarea name="notes"></textarea></label><button class="action">Сохранить профиль</button><p id="profileStatus" role="status"></p></form></details>
     </section>
 
 <section class="module" id="m-documents"><h1 class="mtitle">Документы</h1><div class="mdesc">Фото, PDF, Word, Excel и другие файлы. Оригиналы сохраняются даже без распознавания. На сайте — до 3 МБ; через бота — до 20 МБ.</div><article class="card toolcard"><h3>Добавить документ</h3><form id="uploadForm"><input id="files" type="file" multiple required><button class="action" id="uploadButton">Сохранить и разобрать</button></form><p id="uploadStatus" role="status"></p><p>ИИ извлекает данные из документа. Важные цифры проверяйте по оригиналу.</p></article><article class="card toolcard"><h3>Мой архив</h3><div id="documents"></div><button id="export">Скачать копию данных</button></article></section>

@@ -74,8 +74,8 @@ async function medicalHandler(req,res){
    return respond(200,{ok:true,received:days.length});
   }
   if(path==='profile'&&req.method==='POST'){
-   const b=req.body||{};const profile={name:String(b.name||'Моя медкарта').slice(0,120),birth:/^\d{4}-\d{2}-\d{2}$/.test(b.birth||'')?b.birth:'',sex:['М','Ж'].includes(b.sex)?b.sex:'',diagnoses:[],meds:[],notes:[]};
-   for(const k of ['diagnoses','meds','notes'])profile[k]=String(b[k]||'').slice(0,5000).split('\n').map(s=>s.trim()).filter(Boolean);
+   const b=req.body||{};const profile={name:String(b.name||'Моя медкарта').slice(0,120),birth:/^\d{4}-\d{2}-\d{2}$/.test(b.birth||'')?b.birth:'',sex:['М','Ж'].includes(b.sex)?b.sex:'',bloodGroup:['O−','O+','A−','A+','B−','B+','AB−','AB+'].includes(b.bloodGroup)?b.bloodGroup:'',allergies:[],diagnoses:[],meds:[],notes:[]};
+   for(const k of ['diagnoses','meds','notes','allergies'])profile[k]=String(b[k]||'').slice(0,5000).split('\n').map(s=>s.trim()).filter(Boolean);
    await put('settings/profile.json',JSON.stringify(profile),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});return respond(200,{ok:true});
   }
   if(path==='wearables'&&req.method==='POST'){
