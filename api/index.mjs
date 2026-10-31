@@ -100,7 +100,7 @@ async function medicalHandler(req,res){
    const text=await ai([{type:'input_text',text:JSON.stringify({today:new Date().toISOString().slice(0,10),record,history,question})}]);return respond(200,{text});
   }
   return respond(404,{error:'Не найдено'});
- }catch(e){console.error('Health API',e.name);return respond(e.status||500,{error:e.message?.startsWith('OpenAI')||e.message?.startsWith('Ключ')||e.message?.startsWith('Ultrahuman:')||e.status?e.message:'Не удалось выполнить запрос. Документы не удалены; попробуйте ещё раз.'});}
+ }catch(e){console.error('Health API',JSON.stringify({name:e.name,detail:String(e.message||'').replace(/https?:\/\/[^\s]+/g,'[url]').slice(0,300)}));return respond(e.status||500,{error:e.message?.startsWith('OpenAI')||e.message?.startsWith('Ключ')||e.message?.startsWith('Ultrahuman:')||e.status?e.message:'Не удалось выполнить запрос. Документы не удалены; попробуйте ещё раз.'});}
 }
 
 export function patientWarning(name,patient){
