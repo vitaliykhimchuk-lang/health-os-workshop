@@ -1,4 +1,5 @@
-import {prepareDocument,archiveOnly,withParsed,documentError} from '../lib/document-input.mjs';
+import {queueDocument,runDocumentJob,pendingDocumentJobs,retryDocument} from '../lib/document-jobs.mjs';
+import {prepareDocument,archiveOnly,withParsed,documentError,documentContent} from '../lib/document-input.mjs';
 import {bodyMetricKeys} from '../public/body-math.mjs';
 import {validateSleepContext} from '../lib/sleep-context.mjs';
 import {put,get,list,scopedPath} from '../lib/storage.mjs';
@@ -89,10 +90,15 @@ async function medicalHandler(req,res){
    const meta=await readJson(`records/${id}.json`);const r=await get(meta.path,{...opts,useCache:false});if(!r?.stream)return respond(404,{error:'Файл не найден'});
    res.setHeader('Content-Type',meta.type);res.setHeader('Content-Disposition',`attachment; filename*=UTF-8''${encodeURIComponent(meta.name)}`);return res.send(Buffer.from(await new Response(r.stream).arrayBuffer()));
   }
+  if(path==='document/retry'&&req.method==='POST'){
+   if(!/^[a-f0-9]{64}$/.test(req.body?.id||''))return respond(400,{error:'Неверный документ'});
+   await readJson(`records/${req.body.id}.json`);return respond(200,publicJobResult(await retryDocument(patientContext(),req.body.id,documentServices())));
+  }
   if(path==='upload'&&req.method==='POST'){
-   const parsed=await parseDocument(req.body);const warning=patientWarning(parsed.patientName,patientContext());
-   if(warning&&!req.body.confirmPatient)return respond(409,{error:warning,patientConfirmation:true});
-   return respond(200,await saveDocument(parsed,{replaceUnparsed:true}));
+   const document=archiveOnly(prepareDocument(req.body));const saved=await saveDocument(document);
+   if(saved.parseStatus==='parsed')return respond(200,saved);
+   const path=await queueDocument(patientContext(),document);const result=await runDocumentJob(path,documentServices());
+   return respond(200,{...saved,...publicJobResult(result)});
   }
   if(path==='ask'&&req.method==='POST'){
    const question=String(req.body?.question||'').trim();if(!question||question.length>3000)return respond(400,{error:'Вопрос должен быть от 1 до 3000 символов'});
@@ -110,20 +116,23 @@ export function patientWarning(name,patient){
  return 'В документе указано «'+name+'». Выбрана карта «'+patient.name+'». Подтвердите получателя или переключите карту.';
 }
 export async function parseDocument(input,maxBytes=3000000){
- const prepared=prepareDocument(input,maxBytes);const {type,data}=prepared;
+ const prepared=prepareDocument(input,maxBytes);const {type,data}=prepared;const source=documentContent(prepared);if(!source.content)return {...archiveOnly(prepared,source.reason),parseRetryable:false};
  const schema=structuredClone(catalog.schema);schema.required.push('patientName','patientSpecies');schema.properties.patientName={type:'string',description:'Имя пациента, напечатанное в документе, без догадок; пустая строка если не видно'};schema.properties.patientSpecies={type:'string',enum:['human','dog','cat','unknown']};
  const docSchema=schema.properties.documents.items;docSchema.required.push('summary');docSchema.properties.summary={type:'string',description:'Для отчёта кольца, часов или другого документа: краткое содержание, период, все разборчивые ключевые значения с единицами и датами. Для analysis/visit — краткое содержание без новых фактов.'};
  docSchema.required.push('bodyMetrics');docSchema.properties.bodyMetrics={type:'array',items:{type:'object',additionalProperties:false,required:['key','value','unit'],properties:{key:{type:'string',enum:bodyMetricKeys},value:{type:'number'},unit:{type:'string'}}}};
- const content=[{type:'input_text',text:catalog.prompt+' Чеки весов и биоимпеданс состава тела — doc_type=other, не лабораторный анализ. Извлекай разборчивые значения в bodyMetrics: weightKg (кг), heightCm (см), bmi (кг/м²), bodyFatPercent (%), fatMassKg (кг), fatFreeMassKg (кг), muscleMassKg (кг), skeletalMuscleKg (кг), boneMassKg (кг), basalMetabolismKcal (ккал/сут), waterL (л), intracellularWaterL (л), extracellularWaterL (л), proteinKg (кг), visceralFatLevel (уровень), metabolicAgeYears (лет), score (баллы), impedanceOhm (Ом). Если дата видна, используй дату измерения, не дату загрузки. В summary укажи также время, модель прибора и все факты. source_name — модель прибора, если клиника не указана. Метаболический возраст переводи именно так; rezultat — score (оценка прибора). Нет имени на чеке — patientName пустая строка, не повод отклонять. Не вычисляй недостающие значения и не присваивай нормальность. Для других документов bodyMetrics пустой массив. Отчёты Ultrahuman, Oura, Apple Watch, сна, активности и другие документы принимай как doc_type=other; подробно заполни summary фактическими данными и периодом. Они не являются лабораторными анализами или визитами: markers и reminders пустые, visit — пустые строки и recs пустой массив. Не ставь диагнозы и не применяй нормы анализов к метрикам носимых устройств. Если дата не видна, date — пустая строка. '+' Дополнительно прочитай имя пациента и вид животного, если это ветеринарный документ. Не угадывай имя по названию файла. Для животных не используй человеческие нормы из справочника; ref и flag только из самого документа.'},type==='application/pdf'?{type:'input_file',filename:'document.pdf',file_data:`data:${type};base64,${data}`}:{type:'input_image',image_url:`data:${type};base64,${data}`}];
- try{return withParsed(prepared,await ai(content,schema));}catch(e){console.error('Document parse unavailable',e.name);return archiveOnly(prepared);}
+ const content=[{type:'input_text',text:catalog.prompt+' Чеки весов и биоимпеданс состава тела — doc_type=other, не лабораторный анализ. Извлекай разборчивые значения в bodyMetrics: weightKg (кг), heightCm (см), bmi (кг/м²), bodyFatPercent (%), fatMassKg (кг), fatFreeMassKg (кг), muscleMassKg (кг), skeletalMuscleKg (кг), boneMassKg (кг), basalMetabolismKcal (ккал/сут), waterL (л), intracellularWaterL (л), extracellularWaterL (л), proteinKg (кг), visceralFatLevel (уровень), metabolicAgeYears (лет), score (баллы), impedanceOhm (Ом). Если дата видна, используй дату измерения, не дату загрузки. В summary укажи также время, модель прибора и все факты. source_name — модель прибора, если клиника не указана. Метаболический возраст переводи именно так; rezultat — score (оценка прибора). Нет имени на чеке — patientName пустая строка, не повод отклонять. Не вычисляй недостающие значения и не присваивай нормальность. Для других документов bodyMetrics пустой массив. Отчёты Ultrahuman, Oura, Apple Watch, сна, активности и другие документы принимай как doc_type=other; подробно заполни summary фактическими данными и периодом. Они не являются лабораторными анализами или визитами: markers и reminders пустые, visit — пустые строки и recs пустой массив. Не ставь диагнозы и не применяй нормы анализов к метрикам носимых устройств. Если дата не видна, date — пустая строка. '+' Дополнительно прочитай имя пациента и вид животного, если это ветеринарный документ. Не угадывай имя по названию файла. Для животных не используй человеческие нормы из справочника; ref и flag только из самого документа.'},source.content];
+ try{return withParsed(prepared,await ai(content,schema));}catch(e){console.error('Document parse unavailable',e.name);return {...archiveOnly(prepared,'Оригинал сохранён. Сервис распознавания временно не ответил; разбор будет повторён автоматически.'),parseRetryable:true};}
 }
 export async function saveDocument(input,{replaceUnparsed=false}={}){
  const patient=patientContext();if(input.patientSpecies&&input.patientSpecies!=='unknown'&&input.patientSpecies!==patient.species)throw documentError('Вид пациента в документе не соответствует выбранной карте.',422);
  const {id,name,type,data,parsed,parseStatus='parsed'}=input;const existing=await list({prefix:`records/${id}.json`,limit:1});const previous=existing.blobs.length?await readJson(`records/${id}.json`):null;if(previous&&(!replaceUnparsed||previous.parseStatus!=='unparsed'))return {ok:true,parseStatus:previous.parseStatus||'parsed',message:'Этот документ уже есть в этой карте.'};
- const ext={'application/pdf':'pdf','image/png':'png','image/jpeg':'jpg','image/webp':'webp'}[type];const path=`originals/${id}.${ext}`;
+ const ext={'application/pdf':'pdf','image/png':'png','image/jpeg':'jpg','image/webp':'webp','image/gif':'gif'}[type]||'bin';const path=`originals/${id}.${ext}`;
  if(!previous)await put(path,Buffer.from(data,'base64'),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:type});
- await put(`records/${id}.json`,JSON.stringify({id,path,name,type,created:previous?.created||new Date().toISOString(),parsed,parseStatus}),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});return {ok:true,message:'Документ сохранён в карту «'+patient.name+'».'+(parseStatus==='unparsed'?' Оригинал доступен в разделе «Документы». Автоматический разбор не выполнен; новые показатели не добавлены.':'')};
+ await put(`records/${id}.json`,JSON.stringify({id,path,name,type,created:previous?.created||new Date().toISOString(),parsed,parseStatus}),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'});return {ok:true,parseStatus,message:'Документ сохранён в карту «'+patient.name+'».'+(parseStatus==='unparsed'?' Оригинал доступен в разделе «Документы». Автоматический разбор не выполнен; новые показатели не добавлены.':'')};
 }
+export async function loadDocument(id){const meta=await readJson(`records/${id}.json`);const file=await get(meta.path,{...opts,useCache:false});if(!file?.stream)throw documentError('Оригинал не найден',404);return {name:meta.name,type:meta.type,data:Buffer.from(await new Response(file.stream).arrayBuffer()).toString('base64')};}
+export function documentServices(){return {parseDocument,saveDocument,loadDocument};}
+function publicJobResult(r){return {parseState:r.state,parseNotice:r.reason||'',message:r.state==='done'?'Оригинал сохранён и разобран. Данные добавлены в карту.':['queued','processing'].includes(r.state)?'Оригинал сохранён. Разбор будет повторён автоматически.':r.state==='review'?'Оригинал сохранён в архив. Автоматический разбор пока не завершён.':'Оригинал сохранён. Доступ к карте изменился; разбор остановлен.'};}
 export async function askPatient(question,history=[]){const record=await fullRecord(await entries());return ai([{type:'input_text',text:JSON.stringify({today:new Date().toISOString().slice(0,10),record,history,question})}]);}
 const cookieValue=(req,name)=>(req.headers.cookie||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(name+'='))?.slice(name.length+1);
 const patientCookie=p=>'health_patient='+patientSession(p,process.env.SESSION_SECRET)+'; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200';
@@ -134,9 +143,14 @@ export default async function handler(req,res){
   if(req.method==='POST')checkOrigin(req);
   if(path==='telegram/webhook'&&req.method==='POST'){
    if(!process.env.TELEGRAM_WEBHOOK_SECRET||!safeEqual(req.headers['x-telegram-bot-api-secret-token']||'',process.env.TELEGRAM_WEBHOOK_SECRET))return respond(401,{error:'Нет доступа'});
-   await handleTelegram(req.body,{parseDocument,saveDocument,askPatient,patientWarning});return respond(200,{ok:true});
+   await handleTelegram(req.body,{...documentServices(),askPatient,patientWarning});return respond(200,{ok:true});
   }
   if(!process.env.HEALTH_PASSWORD||!process.env.SESSION_SECRET)return respond(503,{error:'Вход ещё не настроен'});
+  if(path==='documents/cron'&&req.method==='GET'){
+   if(!process.env.CRON_SECRET||!safeEqual(req.headers.authorization||'','Bearer '+process.env.CRON_SECRET))return respond(401,{error:'Нет доступа'});
+   const results=[],started=Date.now();for(const job of await pendingDocumentJobs()){if(Date.now()-started>60000)break;const result=await runDocumentJob(job,documentServices());results.push(result.state);if(result.job?.chat&&['done','review'].includes(result.state))try{await telegramRequest('sendMessage',{chat_id:result.job.chat,text:result.state==='done'?'Документ разобран для карты «'+result.patient.name+'». Данные доступны в приложении и чате.':'Оригинал сохранён в карте «'+result.patient.name+'». После повторных попыток разбор не завершён. Файл не потерян; его можно открыть и повторить разбор в разделе «Документы».'});}catch{}}
+   return respond(200,{processed:results.length,states:results});
+  }
   if(path==='ultrahuman/cron'&&req.method==='GET'){
    if(!process.env.CRON_SECRET||!safeEqual(req.headers.authorization||'','Bearer '+process.env.CRON_SECRET))return respond(401,{error:'Нет доступа'});
    await ensureFamily();return await inPatient(await getPatient('owner'),()=>syncRing().then(d=>respond(200,d)));
