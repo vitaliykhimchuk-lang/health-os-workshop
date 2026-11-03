@@ -204,5 +204,5 @@ export default async function handler(req,res){
    let username=null;if(process.env.TELEGRAM_BOT_TOKEN)try{username=(await telegramRequest('getMe')).username;}catch{}return respond(200,{username,configured:!!username});
   }
   return await inPatient(patient,()=>medicalHandler(req,res));
- }catch(e){console.error('Family API',e.name);return respond(e.status||500,{error:e.status?e.message:'Не удалось выполнить запрос. Попробуйте ещё раз.'});}
+ }catch(e){console.error('Family API',JSON.stringify({name:e.name,detail:String(e.message||'').replace(/https?:\/\/[^\s]+/g,'[url]').slice(0,300)}));return respond(e.status||500,{error:e.status?e.message:'Не удалось выполнить запрос. Попробуйте ещё раз.'});}
 }
