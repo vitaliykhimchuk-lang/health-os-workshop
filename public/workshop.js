@@ -467,7 +467,7 @@ $("profile").innerHTML = `
 const NAV = [
   { id: "overview", ic: "🏠", t: "Обзор" },
   { id: "analyses", ic: "🩸", t: "Анализы", b: D.biomarkers.length, init: renderLabs },
-  { id: "activity", ic: "🏃", t: "Активность", init: () => window.renderActivity(D.activity || null, D.ring || null) },
+  { id: "activity", ic: "🏃", t: "Активность", init: () => window.renderActivity(D.activity || null, D.ring || null, D.exerciseDiary || null) },
   { id: "sleep", ic: "⌚", t: "Сон и пульс", init: renderSleep },
   { id: "body", ic: "⚖️", t: "Вес и состав тела" },
   { id: "visits", ic: "🩺", t: "Визиты к врачам", b: D.visits.length || null },
