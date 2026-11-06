@@ -215,7 +215,7 @@ function labCard(b, i) {
       <div class="br"><div class="bval">${displayLabValue(l)}<small>${b.unit}</small></div><div class="blab">${FLAG_RU[l.flag]}</div></div>
     </div>
     <div class="binfo">Диапазон приложения: ${b.ref}<br>Референс в бланке (исходные единицы): ${l.sourceRef || b.ref}<br>Последний: ${fmtDate(l.date)} · ${n} ${plural(n, "замер", "замера", "замеров")}</div>
-    <div class="chartbox"><canvas data-i="${i}"></canvas></div>
+    ${b.series.filter(s => !s.comparator || s.comparator === "=").length > 1 ? `<div class="chartbox"><canvas data-i="${i}"></canvas></div>` : `<p class="shint">${l.comparator && l.comparator !== "=" ? "Лаборатория сообщила границу, а не точное значение. На графике точкой не отмечается." : "Первый результат. Динамика появится после следующего вашего анализа."}</p>`}
   </div>`;
 }
 function renderLabs() {
