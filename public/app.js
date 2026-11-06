@@ -1,3 +1,4 @@
+import {renderLabNotes} from './lab-notes.mjs';
 import './ring.js';
 import {renderOverview} from './overview.mjs';
 import {renderBody} from './body.mjs';
@@ -13,6 +14,7 @@ function safeData(v){if(typeof v==='string')return esc(v);if(Array.isArray(v))re
 async function refresh(){const {record:r,documents:d,patient}=await api('record');$('currentPatient').textContent=patient.name;$('currentPatient').dataset.patientId=patient.id;$('familyAdmin').hidden=!patient.admin;$('syncRing').hidden=patient.id!=='owner';$('patientPicker').hidden=true;rawData.record=r;rawData.documents=d;r.profile={birth:'',sex:'',diagnoses:[],meds:[],notes:[],...r.profile};
  $('workspace').hidden=false;$('login').hidden=true;
  window.renderWorkshop(safeData(r));
+ renderLabNotes(r.labNotes||[]);
  renderBody(r.bodyMeasurements||[]);
  renderOverview(r,d);
  $('overviewLabTitle').hidden=!r.biomarkers.length;$('tiles').hidden=!r.biomarkers.length;$('overviewStatusTitle').hidden=!r.tldr.length;$('tldr').hidden=!r.tldr.length;

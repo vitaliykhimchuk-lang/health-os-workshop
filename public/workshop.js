@@ -9,6 +9,7 @@ const fmtDate = iso => { if (!iso) return "не указано"; const [y, m, d]
 const fmtShort = iso => { const [, m, d] = iso.split("-").map(Number); return `${d} ${MONTHS[m - 1].slice(0, 3)}`; };
 const plural = (n, one, few, many) => { const a = n % 10, b = n % 100; return a === 1 && b !== 11 ? one : a >= 2 && a <= 4 && (b < 10 || b >= 20) ? few : many; };
 const list = items => items.length ? `<ul>${items.map(i => `<li>${i}</li>`).join("")}</ul>` : `<span class="empty">нет</span>`;
+const displayLabValue = s => (s.comparator && s.comparator !== '=' ? ({'<':'&lt;','>':'&gt;','&lt;':'&lt;','&gt;':'&gt;','<=':'≤','>=':'≥','&lt;=':'≤','&gt;=':'≥'}[s.comparator] || '') : '') + s.value;
 const lastOf = b => b.series[b.series.length - 1];
 const bmByKey = k => D.biomarkers.find(b => b.key === k);
 function ageYears(birthIso, now) {
@@ -44,7 +45,7 @@ $("meta").textContent = `${age === null ? "Возраст не указан" : a
   const bm = (key, label) => {
     const b = D.biomarkers.find(b => b.key === key || b.key.startsWith(key + "|")); if (!b) return;
     const l = lastOf(b);
-    tiles.push({ label, val: l.value, unit: b.unit, cls: l.flag === "ok" ? "green" : "red",
+    tiles.push({ label, val: displayLabValue(l), unit: b.unit, cls: l.flag === "ok" ? "green" : "red",
       cap: `${FLAG_RU[l.flag]} · норма ${b.ref} · ${fmtDate(l.date)}`, href: "#analyses", key: b.key });
   };
   bm("ldl", "LDL"); bm("vitd", "Витамин D");
@@ -67,7 +68,7 @@ function tldrMarkers(t) {
 }
 const chipsOf = b => b.series.slice(-3).map(s => {
   const [y, m, d] = s.date.split("-").map(Number);
-  return `<span class="chip ${s.flag}" title="${fmtDate(s.date)}">${d} ${MONTHS[m - 1].slice(0, 3)} ${y} · <b>${s.value}</b> ${b.unit}</span>`;
+  return `<span class="chip ${s.flag}" title="${fmtDate(s.date)}">${d} ${MONTHS[m - 1].slice(0, 3)} ${y} · <b>${displayLabValue(s)}</b> ${b.unit}</span>`;
 }).join("");
 const miniBlock = b => `<div class="mini" data-key="${b.key}">
   <div class="mini-h"><b>${b.name}</b>${b.fullName !== b.name ? ` · ${b.fullName}` : ""} · норма ${b.ref}</div>
@@ -174,7 +175,7 @@ const normBand = {
   }
 };
 function drawChart(canvas, b) {
-  const pts = b.series.map(s => ({ x: yearPos(s.date), y: s.value, date: s.date, lab: s.lab, flag: s.flag }));
+  const pts = b.series.map(s => ({ x: yearPos(s.date), y: s.comparator && s.comparator !== '=' ? null : s.value, date: s.date, lab: s.lab, flag: s.flag }));
   const xs = pts.map(p => p.x);
   const xMin = Math.floor(Math.min(...xs)), xMax = Math.max(Math.ceil(Math.max(...xs)), xMin + 1);
   const yr = yRange(b);
@@ -211,9 +212,9 @@ function labCard(b, i) {
   return `<div class="bcard st-${l.flag}" id="bm-${b.key}">
     <div class="bhead">
       <div class="bl"><div class="bname">${b.name}</div>${b.fullName !== b.name ? `<div class="bfull">${b.fullName}</div>` : ""}</div>
-      <div class="br"><div class="bval">${l.value}<small>${b.unit}</small></div><div class="blab">${FLAG_RU[l.flag]}</div></div>
+      <div class="br"><div class="bval">${displayLabValue(l)}<small>${b.unit}</small></div><div class="blab">${FLAG_RU[l.flag]}</div></div>
     </div>
-    <div class="binfo">Норма: ${b.ref}<br>Последний: ${fmtDate(l.date)} · ${n} ${plural(n, "замер", "замера", "замеров")}</div>
+    <div class="binfo">Диапазон приложения: ${b.ref}<br>Референс в бланке (исходные единицы): ${l.sourceRef || b.ref}<br>Последний: ${fmtDate(l.date)} · ${n} ${plural(n, "замер", "замера", "замеров")}</div>
     <div class="chartbox"><canvas data-i="${i}"></canvas></div>
   </div>`;
 }
@@ -420,7 +421,7 @@ function remVisit(r, ms) {
 const remMini = b => { const l = lastOf(b); return `<div class="mini" data-key="${b.key}">
   <div class="mini-h"><b>${b.name}</b>${b.fullName !== b.name ? ` · ${b.fullName}` : ""} · норма ${b.ref}</div>
   <div class="chartbox"><canvas></canvas></div>
-  <div class="last">последняя сдача: ${fmtDate(l.date)}, <b>${l.value}</b> ${b.unit}</div>
+  <div class="last">последняя сдача: ${fmtDate(l.date)}, <b>${displayLabValue(l)}</b> ${b.unit}</div>
 </div>`; };
 function remCard(r, scope) {
   const st = remStatus(r), ms = (r.markers || []).map(bmByKey).filter(Boolean), v = remVisit(r, ms);
