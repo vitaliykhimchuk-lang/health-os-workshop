@@ -21,7 +21,6 @@ async function refresh(){const {record:r,documents:d,patient}=await api('record'
  $('overviewLabTitle').hidden=!r.biomarkers.length;$('tiles').hidden=!r.biomarkers.length;$('overviewStatusTitle').hidden=!r.tldr.length;$('tldr').hidden=!r.tldr.length;
  if(patient.id!=="owner"&&!r.activity)$("activityState").textContent="Данные часов этой карты ещё не подключены. Данные кольца организатора здесь не используются.";
  $('overviewEmpty').hidden=!!d.length;
- if(!r.biomarkers.length)$('labs').innerHTML=empty('Показателей пока нет. Загрузите свой анализ в разделе «Документы».');
  if(!r.tldr.length)$('tldr').innerHTML=empty('После загрузки документов здесь появится сводка показателей.');
  $('documents').innerHTML=d.length?d.sort((a,b)=>b.created.localeCompare(a.created)).map(x=>`<div class="doc"><a href="/api/file?id=${encodeURIComponent(x.id)}">${esc(x.name)}</a><small>${x.parseStatus==='unparsed'?'Оригинал сохранён · разбор ожидается или требует проверки':x.dates.map(date).map(esc).join(', ')}${x.parseStatus==='unparsed'?` <button data-retry-document="${x.id}">Повторить разбор</button>`:''}</small></div>`).join(''):empty('Ваших документов пока нет.');
  $('documents').querySelectorAll('[data-retry-document]').forEach(b=>b.onclick=async()=>{b.disabled=true;try{const result=await api('document/retry',{id:b.dataset.retryDocument});$('uploadStatus').textContent=result.message;await refresh();}catch(e){$('uploadStatus').textContent=e.message;}finally{b.disabled=false;}});
