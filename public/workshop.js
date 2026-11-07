@@ -218,12 +218,7 @@ function labCard(b, i) {
     ${b.series.filter(s => !s.comparator || s.comparator === "=").length > 1 ? `<div class="chartbox"><canvas data-i="${i}"></canvas></div>` : `<p class="shint">${l.comparator && l.comparator !== "=" ? "Лаборатория сообщила границу, а не точное значение. На графике точкой не отмечается." : "Первый результат. Динамика появится после следующего вашего анализа."}</p>`}
   </div>`;
 }
-function renderLabs() {
-  const groups = [...new Set(D.biomarkers.map(b => b.group))];
-  $("labs").innerHTML = groups.map(g => `<h3 class="gname">${g}</h3>
-    <div class="lgrid">${D.biomarkers.map((b, i) => b.group === g ? labCard(b, i) : "").join("")}</div>`).join("");
-  document.querySelectorAll("#labs canvas").forEach(c => drawChart(c, D.biomarkers[+c.dataset.i]));
-}
+function renderLabs() {window.renderLabDashboard?.();}
 
 /* ---------- сон и пульс ---------- */
 const BLUE = "#2563eb";
