@@ -18,6 +18,7 @@ async function refresh(){const {record:r,documents:d,patient}=await api('record'
  renderLabDashboard();
  renderBody(r.bodyMeasurements||[]);
  renderOverview(r,d);
+ $("healthNotesList").innerHTML=r.profile.notes.length?r.profile.notes.map(note=>`<article class="card toolcard"><p style="white-space:pre-wrap">${esc(note)}</p></article>`).join(''):'<article class="card toolcard"><p>Наблюдений пока нет. Добавьте первую заметку ниже.</p></article>';
  $('overviewLabTitle').hidden=!r.biomarkers.length;$('tiles').hidden=!r.biomarkers.length;$('overviewStatusTitle').hidden=!r.tldr.length;$('tldr').hidden=!r.tldr.length;
  if(patient.id!=="owner"&&!r.activity)$("activityState").textContent="Данные часов этой карты ещё не подключены. Данные кольца организатора здесь не используются.";
  $('overviewEmpty').hidden=!!d.length;
@@ -47,3 +48,5 @@ $('switchPatient').onclick=async()=>{await api('patient/lock',{});location.reloa
 $('linkTelegram').onclick=async()=>{const b=$('linkTelegram');b.disabled=true;try{const d=await api('telegram/link',{});const a=document.createElement('a');a.href=d.url;a.textContent='Открыть бота и подключить эту карту';a.className='action';a.rel='noreferrer';$('telegramLink').replaceChildren(a);$('telegramLinkStatus').textContent='Ссылка действует 10 минут и только один раз. Откройте её в своём Telegram и нажмите «Начать». Не пересылайте её другим людям.';}catch(x){$('telegramLinkStatus').textContent=x.message;}finally{b.disabled=false;}};
 $('patientPasswordForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const d=await api('patient/password',Object.fromEntries(new FormData(e.target)));e.target.reset();$('patientPasswordStatus').textContent=d.message;}catch(x){$('patientPasswordStatus').textContent=x.message;}finally{b.disabled=false;}};
 $('createPatientForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{const d=await api('patients/create',Object.fromEntries(new FormData(e.target)));e.target.reset();$('createPatientStatus').textContent='Создана карта «'+d.patient.name+'». Она появится при выборе пациента.';}catch(x){$('createPatientStatus').textContent=x.message;}finally{b.disabled=false;}};
+
+$('healthNoteForm').onsubmit=async e=>{e.preventDefault();const b=e.submitter;b.disabled=true;try{await api('health/notes',{text:$('healthNoteText').value});$('healthNoteText').value='';await refresh();$('healthNoteStatus').textContent='Заметка сохранена и доступна чату этой карты.';}catch(x){$('healthNoteStatus').textContent=x.message;}finally{b.disabled=false;}};

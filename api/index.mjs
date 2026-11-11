@@ -92,6 +92,11 @@ async function medicalHandler(req,res){
    for(let i=0;i<days.length;i+=10)await Promise.all(days.slice(i,i+10).map(d=>put(`activity/watch/${d.date}.json`,JSON.stringify(d),{...opts,addRandomSuffix:false,allowOverwrite:true,contentType:'application/json'})));
    return respond(200,{ok:true,received:days.length});
   }
+  if(path==='health/notes'&&req.method==='POST'){
+   const text=typeof req.body?.text==='string'?req.body.text.trim():'';if(!text||text.length>2000)return respond(400,{error:'Введите заметку до 2000 символов.'});
+   const date=new Intl.DateTimeFormat('ru-RU',{timeZone:'Europe/Warsaw',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+   await mutate(scopedPath('settings/profile.json'),old=>{const profile=old||{};const notes=[...(Array.isArray(profile.notes)?profile.notes:[])];const note=date+' — Со слов пациента: '+text;if(!notes.includes(note))notes.push(note);if(notes.join('\n').length>5000)throw documentError('Место заметок заполнено. Сохраните подробный текст отдельным документом.',400);return {...profile,notes};});return respond(200,{ok:true});
+  }
   if(path==='profile'&&req.method==='POST'){
    const b=req.body||{};const profile={name:String(b.name||'Моя медкарта').slice(0,120),birth:/^\d{4}-\d{2}-\d{2}$/.test(b.birth||'')?b.birth:'',sex:['М','Ж'].includes(b.sex)?b.sex:'',bloodGroup:['O−','O+','A−','A+','B−','B+','AB−','AB+'].includes(b.bloodGroup)?b.bloodGroup:'',allergies:[],diagnoses:[],meds:[],notes:[]};
    for(const k of ['diagnoses','meds','notes','allergies'])profile[k]=String(b[k]||'').slice(0,5000).split('\n').map(s=>s.trim()).filter(Boolean);

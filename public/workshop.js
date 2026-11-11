@@ -455,7 +455,7 @@ $("profile").innerHTML = `
   <div class="psections">
     <div class="psec"><div class="lbl">Диагнозы</div>${list(p.diagnoses)}</div>
     <div class="psec"><div class="lbl">Препараты</div>${list(p.meds)}</div>
-    <div class="psec"><div class="lbl">Заметки</div>${list(p.notes)}</div>
+    <div class="psec"><a href="#health-notes">Заметки о здоровье →</a></div>
   </div>`;
 
 /* ---------- навигация по хэшу (#overview, #analyses, ...) ---------- */
@@ -468,6 +468,7 @@ const NAV = [
   { id: "body", ic: "⚖️", t: "Вес и состав тела" },
   { id: "visits", ic: "🩺", t: "Визиты к врачам", b: D.visits.length || null },
   { id: "reminders", ic: `<svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" style="vertical-align:middle;color:#16836b"><path fill="currentColor" d="M9 2h6v7h7v6h-7v7H9v-7H2V9h7z"/></svg>`, t: "Напоминания", b: remBadge && remBadge.n, bc: remBadge && remBadge.cls },
+  { id: "health-notes", ic: "📝", t: "Заметки о здоровье" },
   { id: "documents", ic: "📁", t: "Документы" },
   { id: "chat", ic: "💬", t: "Чат по медкарте" },
   { id: "profile", ic: "👤", t: "Профиль" },
