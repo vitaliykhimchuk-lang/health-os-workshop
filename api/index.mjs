@@ -1,3 +1,4 @@
+import {validateDocumentReview} from '../lib/document-review.mjs';
 import {validateLabDocuments,validateLabNotes} from '../lib/lab-review.mjs';
 import {parseExerciseDiary} from '../lib/exercise-diary.mjs';
 import {queueDocument,runDocumentJob,pendingDocumentJobs,retryDocument} from '../lib/document-jobs.mjs';
@@ -57,6 +58,10 @@ async function medicalHandler(req,res){
   if(path==='ultrahuman/sync'&&req.method==='POST'){if(patientContext().id!=='owner')return respond(403,{error:'Это кольцо подключено к другой карте.'});return respond(200,await syncRing());}
   
   if(path==='record'&&req.method==='GET'){const e=await entries();return respond(200,{patient:publicPatient(patientContext()),record:await fullRecord(e),documents:e.map(({id,name,created,parsed,parseStatus})=>({id,name,created,parseStatus:parseStatus||'parsed',dates:parsed.documents.map(d=>d.date).filter(Boolean)}))});}
+  if(path==='document/review'&&req.method==='POST'){
+   const b=req.body||{};if(!/^[a-f0-9]{64}$/.test(b.id||''))return respond(400,{error:'Неверный документ'});const documents=validateDocumentReview(b.documents);
+   await mutate(scopedPath(`records/${b.id}.json`),old=>{if(!old||old.parseStatus!=='parsed'||!old.parsed?.documents?.length)throw documentError('Документ не найден в этой карте.',404);return {...old,parsed:{...old.parsed,documents},reviewedAt:new Date().toISOString()};});return respond(200,{ok:true});
+  }
   if(path==='analysis/review'&&req.method==='POST'){
    const b=req.body||{};if(!/^[a-f0-9]{64}$/.test(b.id||''))return respond(400,{error:'Неверный документ'});const documents=validateLabDocuments(b.documents);
    await mutate(scopedPath(`records/${b.id}.json`),old=>{if(!old||old.parseStatus!=='parsed'||!old.parsed.documents.length||!old.parsed.documents.every(d=>d.doc_type==='analysis'))throw documentError('Анализ не найден в этой карте.',404);return {...old,parsed:{...old.parsed,documents},reviewedAt:new Date().toISOString()};});return respond(200,{ok:true});
