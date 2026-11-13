@@ -1,3 +1,4 @@
+import {renderCheckups} from './checkups.mjs';
 import {setLabData,renderLabDashboard} from './lab-dashboard.mjs';
 import './ring.js';
 import {renderOverview} from './overview.mjs';
@@ -18,6 +19,7 @@ async function refresh(){const {record:r,documents:d,patient}=await api('record'
  renderLabDashboard();
  renderBody(r.bodyMeasurements||[]);
  renderOverview(r,d);
+ renderCheckups(r,d);
  $("healthNotesList").innerHTML=r.profile.notes.length?r.profile.notes.map(note=>`<article class="card toolcard"><p style="white-space:pre-wrap">${esc(note)}</p></article>`).join(''):'<article class="card toolcard"><p>Наблюдений пока нет. Добавьте первую заметку ниже.</p></article>';
  $('overviewLabTitle').hidden=!r.biomarkers.length;$('tiles').hidden=!r.biomarkers.length;$('overviewStatusTitle').hidden=!r.tldr.length;$('tldr').hidden=!r.tldr.length;
  if(patient.id!=="owner"&&!r.activity)$("activityState").textContent="Данные часов этой карты ещё не подключены. Данные кольца организатора здесь не используются.";

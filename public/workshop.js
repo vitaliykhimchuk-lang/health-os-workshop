@@ -462,6 +462,7 @@ $("profile").innerHTML = `
 // init — функция, которая рисует вкладку при первом открытии
 const NAV = [
   { id: "overview", ic: "🏠", t: "Обзор" },
+  { id: "checkups", ic: "📋", t: "Чек-апы" },
   { id: "analyses", ic: "🩸", t: "Анализы", b: D.biomarkers.length, init: renderLabs },
   { id: "activity", ic: "🏃", t: "Активность", init: () => window.renderActivity(D.activity || null, D.ring || null, D.exerciseDiary || null) },
   { id: "sleep", ic: "⌚", t: "Сон и пульс", init: renderSleep },
